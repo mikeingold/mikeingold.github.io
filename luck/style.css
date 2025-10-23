@@ -1,0 +1,276 @@
+/* === GLOBAL STYLES === */
+
+/* Reset default browser styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Main body styling */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background: #f5f5f5;
+    padding: 20px;
+}
+
+/* Main content container */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+/* Main page title */
+h1 {
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
+
+/* Subtitle text below main title */
+.subtitle {
+    color: #7f8c8d;
+    margin-bottom: 30px;
+}
+
+/* Section headings (for charts and tables) */
+h2 {
+    margin-bottom: 15px;
+}
+
+
+/* === CONTROL PANEL === */
+
+/* Container for all control inputs */
+.controls {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 6px;
+    margin-bottom: 30px;
+}
+
+/* Individual control group (label + input) */
+.control-group {
+    margin-bottom: 20px;
+}
+
+/* Labels for control inputs */
+.control-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #2c3e50;
+}
+
+/* Grid layout for weight sliders */
+.weight-control {
+    display: grid;
+    grid-template-columns: 80px 1fr 60px;
+    gap: 15px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+/* Labels within weight controls */
+.weight-label {
+    font-weight: 500;
+    color: #34495e;
+}
+
+/* Range slider styling */
+input[type="range"] {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: #ddd;
+    outline: none;
+}
+
+/* Range slider thumb (WebKit browsers) */
+input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #3498db;
+    cursor: pointer;
+}
+
+/* Range slider thumb (Firefox) */
+input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #3498db;
+    cursor: pointer;
+    border: none;
+}
+
+/* Value display next to sliders */
+.weight-value {
+    text-align: right;
+    font-weight: 600;
+    color: #3498db;
+}
+
+/* Number input fields */
+input[type="number"] {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    width: 100%;
+    font-size: 14px;
+}
+
+/* Generate button */
+button {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+/* Generate button hover state */
+button:hover {
+    background: #2980b9;
+}
+
+
+/* === STATISTICS CARDS === */
+
+/* Grid container for stat cards */
+.stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+/* Individual stat card */
+.stat-card {
+    background: #ecf0f1;
+    padding: 15px;
+    border-radius: 6px;
+    text-align: center;
+}
+
+/* Highlighted stat card (for "Hired" count) */
+.stat-card.highlight {
+    background: #3498db;
+    color: white;
+}
+
+/* Value text in highlighted cards */
+.stat-card.highlight .stat-value {
+    color: white;
+}
+
+/* Label text in highlighted cards */
+.stat-card.highlight .stat-label {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Low luck stat card styling */
+.stat-card.low-luck {
+    background: rgba(255, 100, 100, 0.2);
+    border: 2px solid rgba(255, 100, 100, 0.5);
+}
+
+/* Medium luck stat card styling */
+.stat-card.med-luck {
+    background: rgba(200, 200, 200, 0.2);
+    border: 2px solid rgba(200, 200, 200, 0.5);
+}
+
+/* High luck stat card styling */
+.stat-card.high-luck {
+    background: rgba(100, 255, 100, 0.2);
+    border: 2px solid rgba(100, 255, 100, 0.5);
+}
+
+/* Large number in stat cards */
+.stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+/* Description text in stat cards */
+.stat-label {
+    font-size: 14px;
+    color: #7f8c8d;
+    margin-top: 5px;
+}
+
+
+/* === CHARTS (HISTOGRAM & SCATTER PLOT) === */
+
+/* Container for chart sections */
+.chart-container {
+    margin-bottom: 30px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+/* Wrapper for chart canvas (histogram) */
+.chart-wrapper {
+    position: relative;
+    height: 300px;
+}
+
+
+/* === RANKINGS TABLE === */
+
+/* Scrollable container for the table */
+.table-container {
+    max-height: 500px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+/* Main table styling */
+.applicants-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+/* Table cells (both headers and data) */
+.applicants-table th,
+.applicants-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+/* Table header row */
+.applicants-table th {
+    background: #34495e;
+    color: white;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+}
+
+/* Table row hover effect */
+.applicants-table tr:hover {
+    background: #f8f9fa;
+}
+
+/* Rank column styling */
+.rank {
+    font-weight: 600;
+    color: #3498db;
+}
