@@ -1,14 +1,63 @@
 // =============================================================================
+//                                 UTILS
+// =============================================================================
+
+/**
+ * Generate a normally distributed random number using Box-Muller transform
+ * with rejection sampling to ensure the value is within [0, 100]
+ * @param {number} mean - The mean of the normal distribution (default: 50)
+ * @param {number} stdDev - The standard deviation (default: 15)
+ * @returns {number} A random value from the normal distribution within [0, 100]
+ */
+function normalRandom(mean = 50, standard_deviation = 15) {
+    let value;
+    // Rejection sampling: keep generating until we get a value in range
+    do {
+        const u1 = Math.random();
+        const u2 = Math.random();
+        const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+        value = mean + z * standard_deviation;
+    } while (value < 0 || value > 100);
+    
+    return value;
+}
+
+function sort_luck_ascending(a, b) {
+    return (a.score_luck - b.score_luck)
+}
+
+function sort_overall_score_descending(a, b) {
+    return (b.score_overall - a.score_overall)
+}
+
+function to_int_percentage(x) {
+    return (100 * x).toFixed(0) + '%'
+}
+
+// =============================================================================
 //                                GLOBAL STATE
 // =============================================================================
 
 let applicants = [];  // applicant data
-let chart = null;  // histogram
 let scatterChart = null;  // scatter plot
+
+const GREEN = 'rgba(100, 255, 100, 1)'
+const GRAY  = 'rgba(200, 200, 200, 1)'
+const RED   = 'rgba(255, 100, 100, 1)'
 
 // =============================================================================
 //                            APPLICANT GENERATION
 // =============================================================================
+
+class Applicant {
+    constructor(id, name, score_competence, score_luck) {
+        this.id = id
+        this.name = name
+        this.score_competence = score_competence
+        this.score_luck = score_luck
+        this.score_overall = NaN
+    }
+}
 
 /** Array of common first names for generating random applicant names */
 const firstNames = [
@@ -34,24 +83,36 @@ function generateName() {
     return `${firstName} ${lastInitial}.`;
 }
 
-/**
- * Generate a normally distributed random number using Box-Muller transform
- * with rejection sampling to ensure the value is within [0, 100]
- * @param {number} mean - The mean of the normal distribution (default: 50)
- * @param {number} stdDev - The standard deviation (default: 15)
- * @returns {number} A random value from the normal distribution within [0, 100]
- */
-function normalRandom(mean = 50, stdDev = 15) {
-    let value;
-    // Rejection sampling: keep generating until we get a value in range
-    do {
-        const u1 = Math.random();
-        const u2 = Math.random();
-        const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-        value = mean + z * stdDev;
-    } while (value < 0 || value > 100);
+// =============================================================================
+//                        APPLICANT POOL MANAGEMENT
+// =============================================================================
+
+// Generate applicants, then calculate stats and update UI
+function generateApplicants() {
+    const N = get_ui_number_applicants()
+    const dist = get_ui_competence_stats()
     
-    return value;
+    applicants = [];
+    for (let i = 0; i < N; i++) {
+        const id = i + 1
+        const name = generateName()
+        const competence = Math.round(normalRandom(dist.mean, dist.standard_deviation))
+        const luck = Math.round(Math.random() * 100)
+        app = new Applicant(id, name, competence, luck)
+        applicants.push(app);
+    }
+}
+
+// Get weight average of trait scores
+function get_overall_score(app) {
+    const weights = get_ui_weight_balance()
+    return (weights.competence * app.score_competence) + (weights.luck * app.score_luck)
+}
+
+// For all applicants: calculate/store overall score, sort all (descending)
+function calculate_overall_scores() {
+    for (app of applicants) { app.score_overall = get_overall_score(app) }
+    applicants.sort(sort_overall_score_descending);
 }
 
 // =============================================================================
@@ -77,100 +138,88 @@ function get_ui_number_hired() {
 }
 
 /**
- * Retrieve UI setting: Competence Statistics
- * @returns {number[]} The numbers currently entered in the UI elements:
- *   - [0] The desired normal distribution mean
- *   - [1] The desired normal distribution standard deviation
+ * Retrieve UI setting: Competence Statistics (normal distribution)
+ * @returns {{mean: number, standard_deviation: number}} Object containing the
+ *          numbers currently entered in the UI elements
  */
 function get_ui_competence_stats() {
-    const ui_element_mean = document.getElementById('competenceMean')
-    const ui_element_stddev = document.getElementById('competenceStdDev')
-    return [parseInt(ui_element_mean.value), parseInt(ui_element_stddev.value)]
+    const mean = document.getElementById('competenceMean')
+    const standard_deviation = document.getElementById('competenceStdDev')
+    return {
+        mean: parseInt(mean.value),
+        standard_deviation: parseInt(standard_deviation.value)
+    }
 }
 
 /**
  * Retrieve UI setting: Weight Balance
- * @returns {number[]} The weights currently selected in the UI.
- *   - [0] The desired competence weight
- *   - [1] The desired luck weight
+ * @returns {{competence: number, luck: number}} The weights currently selected
+ *          in the UI.
  */
 function get_ui_weight_balance() {
     const ui_element = document.getElementById('weightSlider')
-    const weight_competence = parseInt(ui_element.value)
-    const weight_luck = 100 - weight_competence
-    return [weight_competence, weight_luck]
+    const weight_competence = parseInt(ui_element.value) / 100
+    return {
+        competence: weight_competence,
+        luck: (1 - weight_competence)
+    }
 }
 
 // =============================================================================
-//                              UI EVENT HANDLING
+//                          UI - APPLICANT POOL
 // =============================================================================
 
 // Applicant Pool > Competence Distribution > Update displayed numbers on right
 function updateDistributionDisplay() {
-    const [mean, stdDev] = get_ui_competence_stats()
-    document.getElementById('valueMean').textContent = mean;
-    document.getElementById('valueStdDev').textContent = stdDev;
+    const dist = get_ui_competence_stats()
+    document.getElementById('valueMean').textContent = dist.mean;
+    document.getElementById('valueStdDev').textContent = dist.standard_deviation;
 }
 
-// Scoring Weights > Weight Balance > Updated displayed numbers below slider
-function updateWeights() {
-    const [compWeight, luckWeight] = get_ui_weight_balance()
-    document.getElementById('valueCompetence').textContent = compWeight + '%';
-    document.getElementById('valueLuck').textContent = luckWeight + '%';
-    
-    if (applicants.length > 0) {
-        calculateScores();
-        updateVisualization();
-    }
-}
-
-document.getElementById('weightSlider').addEventListener('input', updateWeights);
+// Attach listeners
 document.getElementById('competenceMean').addEventListener('input', updateDistributionDisplay);
 document.getElementById('competenceStdDev').addEventListener('input', updateDistributionDisplay);
-document.getElementById('numHired').addEventListener('input', () => {
-    if (applicants.length > 0) {
-        updateVisualization();
-    }
+
+// Trigger: generate new applicant pool and update visualizations
+function new_applicant_pool() {
+    generateApplicants()
+    updateVisualization()
+}
+
+// =============================================================================
+//                          UI - HIRING CRITERIA
+// =============================================================================
+
+
+
+// Scoring Weights > Weight Balance > Updated displayed numbers below slider
+function update_weight_labels() {
+    const weights = get_ui_weight_balance()
+    document.getElementById('valueCompetence').textContent = to_int_percentage(weights.competence)
+    document.getElementById('valueLuck').textContent = to_int_percentage(weights.luck)
+}
+
+// Attach listener: update visualizations based on new weight
+document.getElementById('weightSlider').addEventListener('input', () => {
+    update_weight_labels()
+    updateVisualization()
 });
 
-// Generate applicants, then calculate stats and update UI
-function generateApplicants() {
-    const N = get_ui_number_applicants()
-    const [mean, stdDev] = get_ui_competence_stats()
-    
-    applicants = [];
-    for (let i = 0; i < N; i++) {
-        applicants.push({
-            id: i + 1,
-            name: generateName(),
-            competence: Math.round(normalRandom(mean, stdDev)),
-            luck: Math.round(Math.random() * 100),
-            score: 0
-        });
-    }
-    
-    calculateScores();
-    updateVisualization();
-}
+document.getElementById('numHired').addEventListener('input', updateVisualization);
 
-function calculateScores() {
-    const compWeight = parseInt(document.getElementById('weightSlider').value);
-    const luckWeight = 100 - compWeight;
-    
-    applicants.forEach(app => {
-        app.score = (app.competence * compWeight + app.luck * luckWeight) / 100;
-    });
-    
-    applicants.sort((x, y) => y.score - x.score);
-}
+// =============================================================================
+//                              VISUALIZATIONS
+// =============================================================================
 
+// Update all visualizations
 function updateVisualization() {
-    updateStats();
-    updateHistogram();
-    updateScatterPlot();
-    updateTable();
+    calculate_overall_scores()
+    updateStats()
+    updateScatterPlot()
+    updateTable()
 }
 
+// Statistics Cards: Total Applicants, Hired, Stats per Luck Level
 function updateStats() {
     const number_to_hire = get_ui_number_hired()
     const number_available = applicants.length
@@ -181,217 +230,113 @@ function updateStats() {
     document.getElementById('statHired').textContent = numHired;
     
     // Categorize applicants by luck into three equal groups
-    const sortedByLuck = [...applicants].sort((a, b) => a.luck - b.luck);
+    const sortedByLuck = [...applicants].sort(sort_luck_ascending);
     const third = Math.floor(sortedByLuck.length / 3);
     
-    const lowLuckThreshold = sortedByLuck[third].luck;
-    const highLuckThreshold = sortedByLuck[third * 2].luck;
+    const lowLuckThreshold = sortedByLuck[third].score_luck;
+    const highLuckThreshold = sortedByLuck[third * 2].score_luck;
     
     // Count hired applicants by luck category
-    const hiredApplicants = applicants.slice(0, numHired);
-    let lowLuckHired = 0;
-    let medLuckHired = 0;
-    let highLuckHired = 0;
-    
-    hiredApplicants.forEach(app => {
-        if (app.luck <= lowLuckThreshold) {
-            lowLuckHired++;
-        } else if (app.luck <= highLuckThreshold) {
-            medLuckHired++;
+    let lowLuckHired = medLuckHired = highLuckHired = 0;
+    applicants.slice(0, numHired).forEach(app => {
+        if (app.score_luck <= lowLuckThreshold) {
+            lowLuckHired++
+        } else if (app.score_luck > highLuckThreshold) {
+            highLuckHired++
         } else {
-            highLuckHired++;
+            medLuckHired++
         }
     });
-    
+
+    // Update luck category stats
     const lowLuckPercent = numHired > 0 ? ((lowLuckHired / numHired) * 100).toFixed(1) : 0;
     const medLuckPercent = numHired > 0 ? ((medLuckHired / numHired) * 100).toFixed(1) : 0;
     const highLuckPercent = numHired > 0 ? ((highLuckHired / numHired) * 100).toFixed(1) : 0;
-    
-    // Update luck category stats
     document.getElementById('statLowLuck').textContent = `${lowLuckHired} (${lowLuckPercent}%)`;
     document.getElementById('statMedLuck').textContent = `${medLuckHired} (${medLuckPercent}%)`;
     document.getElementById('statHighLuck').textContent = `${highLuckHired} (${highLuckPercent}%)`;
 }
 
-function updateHistogram() {
-    const scores = applicants.map(a => a.score);
-    const bins = 10;
-    const binSize = 10;
-    
-    // Categorize applicants by luck into three equal groups
-    const sortedByLuck = [...applicants].sort((a, b) => a.luck - b.luck);
-    const third = Math.floor(sortedByLuck.length / 3);
-    
-    const lowLuckThreshold = sortedByLuck[third].luck;
-    const highLuckThreshold = sortedByLuck[third * 2].luck;
-    
-    const histogramLow = new Array(bins).fill(0);
-    const histogramMed = new Array(bins).fill(0);
-    const histogramHigh = new Array(bins).fill(0);
-    const labels = [];
-    
-    for (let i = 0; i < bins; i++) {
-        const binStart = i * binSize;
-        const binEnd = binStart + binSize;
-        labels.push(`${binStart}`);
-        
-        applicants.forEach(app => {
-            const score = app.score;
-            if (score >= binStart && (i === bins - 1 ? score <= binEnd : score < binEnd)) {
-                if (app.luck <= lowLuckThreshold) {
-                    histogramLow[i]++;
-                } else if (app.luck <= highLuckThreshold) {
-                    histogramMed[i]++;
-                } else {
-                    histogramHigh[i]++;
-                }
-            }
-        });
-    }
-    
-    const ctx = document.getElementById('histogram').getContext('2d');
-    
-    if (chart) {
-        chart.destroy();
-    }
-    
-    chart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: 'Low Luck',
-                    data: histogramLow,
-                    backgroundColor: 'rgba(255, 100, 100, 0.7)',
-                    borderColor: 'rgba(255, 100, 100, 1)',
-                    borderWidth: 1
-                },
-                {
-                    label: 'Medium Luck',
-                    data: histogramMed,
-                    backgroundColor: 'rgba(200, 200, 200, 0.7)',
-                    borderColor: 'rgba(200, 200, 200, 1)',
-                    borderWidth: 1
-                },
-                {
-                    label: 'High Luck',
-                    data: histogramHigh,
-                    backgroundColor: 'rgba(100, 255, 100, 0.7)',
-                    borderColor: 'rgba(100, 255, 100, 1)',
-                    borderWidth: 1
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    stacked: true,
-                    ticks: {
-                        stepSize: 1
-                    },
-                    title: {
-                        display: true,
-                        text: 'Number of Applicants'
-                    }
-                },
-                x: {
-                    stacked: true,
-                    title: {
-                        display: true,
-                        text: 'Score Range'
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'top'
-                }
-            }
-        }
-    });
-}
-
 function updateScatterPlot() {
-    const numHired = Math.min(parseInt(document.getElementById('numHired').value), applicants.length);
+    const number_to_hire = get_ui_number_hired()
+    const number_applicants = applicants.length
+    const numHired = Math.min(number_to_hire, number_applicants);
     
     // Categorize applicants by luck into three equal groups
-    const sortedByLuck = [...applicants].sort((a, b) => a.luck - b.luck);
+    const sortedByLuck = [...applicants].sort(sort_luck_ascending);
     const third = Math.floor(sortedByLuck.length / 3);
     
-    const lowLuckThreshold = sortedByLuck[third].luck;
-    const highLuckThreshold = sortedByLuck[third * 2].luck;
+    const lowLuckThreshold = sortedByLuck[third].score_luck;
+    const highLuckThreshold = sortedByLuck[third * 2].score_luck;
     
     // Separate hired and non-hired applicants (include name in data)
     const hiredData = applicants.slice(0, numHired).map(app => ({
-        x: app.competence,
-        y: app.luck,
+        x: app.score_competence,
+        y: app.score_luck,
         name: app.name
     }));
-    
     const notHiredData = applicants.slice(numHired).map(app => ({
-        x: app.competence,
-        y: app.luck,
+        x: app.score_competence,
+        y: app.score_luck,
         name: app.name
     }));
     
-    // Calculate the cutoff score (lowest hired applicant's score)
-    const cutoffScore = numHired > 0 ? applicants[numHired - 1].score : 0;
-    
+    // Calculate the cutoff score (lowest hired-applicant's score)
+    const cutoffScore = (numHired > 0) ? applicants[numHired - 1].score_overall : 0;
+    console.log(`cutoffScore = ${cutoffScore}`)
+
     // Get weights
-    const compWeight = parseInt(document.getElementById('weightSlider').value) / 100;
-    const luckWeight = 1 - compWeight;
+    const weights = get_ui_weight_balance()
     
     // The cutoff line equation: compWeight * competence + luckWeight * luck = cutoffScore
     // Solving for luck: luck = (cutoffScore - compWeight * competence) / luckWeight
     // Extend the line beyond the plot boundaries
     const boundaryLine = [];
-    if (luckWeight > 0.001) { // Avoid division by zero
+    if (weights.luck > 0.001) {
+        // Avoid division by zero
         // Calculate luck values at the extreme competence values
-        const luckAt0 = (cutoffScore - compWeight * 0) / luckWeight;
-        const luckAt100 = (cutoffScore - compWeight * 100) / luckWeight;
-        
+        const luckAt0 = (cutoffScore - weights.competence * 0) / weights.luck;
+        const luckAt100 = (cutoffScore - weights.competence * 100) / weights.luck;
+
         // Extend beyond visible range
-        if (luckAt0 >= 0 && luckAt0 <= 100) {
+        if ((0 <= luckAt0) && (luckAt0 <= 100)) {
             // Start from left edge
             boundaryLine.push({ x: 0, y: luckAt0 });
-        } else if (luckAt0 > 100) {
+        } else if (100 < luckAt0) {
             // Line starts above plot, find where it enters
-            const compAtLuck100 = (cutoffScore - luckWeight * 100) / compWeight;
+            const compAtLuck100 = (cutoffScore - weights.luck * 100) / weights.competence;
             boundaryLine.push({ x: compAtLuck100, y: 100 });
         } else {
             // Line starts below plot, find where it enters
-            const compAtLuck0 = (cutoffScore - luckWeight * 0) / compWeight;
+            const compAtLuck0 = (cutoffScore - weights.luck * 0) / weights.competence;
             boundaryLine.push({ x: compAtLuck0, y: 0 });
         }
         
-        if (luckAt100 >= 0 && luckAt100 <= 100) {
+        if ((0 <= luckAt100) && (luckAt100 <= 100)) {
             // End at right edge
             boundaryLine.push({ x: 100, y: luckAt100 });
-        } else if (luckAt100 > 100) {
+        } else if (100 < luckAt100) {
             // Line ends above plot, find where it exits
-            const compAtLuck100 = (cutoffScore - luckWeight * 100) / compWeight;
+            const compAtLuck100 = (cutoffScore - weights.luck * 100) / weights.competence;
             boundaryLine.push({ x: compAtLuck100, y: 100 });
         } else {
             // Line ends below plot, find where it exits
-            const compAtLuck0 = (cutoffScore - luckWeight * 0) / compWeight;
+            const compAtLuck0 = (cutoffScore - weights.luck * 0) / weights.competence;
             boundaryLine.push({ x: compAtLuck0, y: 0 });
         }
     } else {
-        // If luck weight is essentially 0, vertical line at cutoff competence
-        const cutoffComp = cutoffScore / compWeight;
+        // Vertical line when luck weight is zero
+        const cutoffComp = cutoffScore / weights.competence;
         if (cutoffComp >= 0 && cutoffComp <= 100) {
             boundaryLine.push({ x: cutoffComp, y: 0 });
             boundaryLine.push({ x: cutoffComp, y: 100 });
         }
     }
+
+    for (pt of boundaryLine) { console.log(pt) }
     
+    // Locate scatter plot element, erase existing data
     const ctx = document.getElementById('scatterPlot').getContext('2d');
-    
     if (scatterChart) {
         scatterChart.destroy();
     }
@@ -461,7 +406,8 @@ function updateScatterPlot() {
         options: {
             responsive: true,
             maintainAspectRatio: true,
-            aspectRatio: 1,
+            aspectRatio: 1,    // x and y axes have equal scale
+            animation: false,  // No softening transition between updates
             scales: {
                 x: {
                     title: {
@@ -519,17 +465,19 @@ function updateScatterPlot() {
     });
 }
 
+// Update Applicant Rankings table
 function updateTable() {
+    // Erase old table contents
     const tbody = document.getElementById('applicantsTable');
     tbody.innerHTML = '';
     
     // Categorize applicants by luck into three equal groups
-    const sortedByLuck = [...applicants].sort((a, b) => a.luck - b.luck);
+    const sortedByLuck = [...applicants].sort(sort_luck_ascending);
     const third = Math.floor(sortedByLuck.length / 3);
-    
-    const lowLuckThreshold = sortedByLuck[third].luck;
-    const highLuckThreshold = sortedByLuck[third * 2].luck;
+    const lowLuckThreshold = sortedByLuck[third].score_luck;
+    const highLuckThreshold = sortedByLuck[2 * third].score_luck;
 
+    // Determine hiring cutoff
     const numHired = get_ui_number_hired()
     
     applicants.forEach((app, index) => {
@@ -537,9 +485,9 @@ function updateTable() {
         
         // Calculate background color based on luck category
         let backgroundColor;
-        if (app.luck <= lowLuckThreshold) {
+        if (app.score_luck <= lowLuckThreshold) {
             backgroundColor = 'rgba(255, 100, 100, 0.3)'; // Low luck - red
-        } else if (app.luck <= highLuckThreshold) {
+        } else if (app.score_luck <= highLuckThreshold) {
             backgroundColor = 'rgba(200, 200, 200, 0.3)'; // Medium luck - gray
         } else {
             backgroundColor = 'rgba(100, 255, 100, 0.3)'; // High luck - green
@@ -551,9 +499,9 @@ function updateTable() {
         row.innerHTML = `
             <td class="rank">#${index + 1}</td>
             <td>${app.name}</td>
-            <td>${app.competence}</td>
-            <td>${app.luck}</td>
-            <td>${app.score.toFixed(1)}</td>
+            <td>${app.score_competence}</td>
+            <td>${app.score_luck}</td>
+            <td>${app.score_overall.toFixed(1)}</td>
             <td>${hired_indicator}</td>
         `;
     });
@@ -561,3 +509,4 @@ function updateTable() {
 
 // Generate initial applicants
 generateApplicants();
+updateVisualization()

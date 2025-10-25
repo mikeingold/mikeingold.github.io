@@ -213,7 +213,7 @@ button:hover {
 }
 
 
-/* === CHARTS (HISTOGRAM & SCATTER PLOT) === */
+/* === CHARTS === */
 
 /* Container for chart sections */
 .chart-container {
@@ -223,7 +223,7 @@ button:hover {
     border-radius: 6px;
 }
 
-/* Wrapper for chart canvas (histogram) */
+/* Wrapper for chart canvas */
 .chart-wrapper {
     position: relative;
     height: 300px;
