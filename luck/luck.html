@@ -20,15 +20,15 @@
             </div>
             
             <div class="control-group">
-                <label>Competence Distribution:</label>
+                <label>Merit Distribution:</label>
                 <div class="weight-control">
                     <span class="weight-label">Mean:</span>
-                    <input type="range" id="competenceMean" min="0" max="100" value="50" step="1">
+                    <input type="range" id="meritMean" min="0" max="100" value="50" step="1">
                     <span class="weight-value" id="valueMean">50</span>
                 </div>
                 <div class="weight-control">
                     <span class="weight-label">Std Dev:</span>
-                    <input type="range" id="competenceStdDev" min="1" max="30" value="10" step="1">
+                    <input type="range" id="meritStdDev" min="1" max="30" value="10" step="1">
                     <span class="weight-value" id="valueStdDev">15</span>
                 </div>
             </div>
@@ -43,12 +43,12 @@
             <div class="control-group">
                 <label>Weight Balance:</label>
                 <div class="weight-control">
-                    <span class="weight-label">Competence</span>
+                    <span class="weight-label">Merit</span>
                     <input type="range" id="weightSlider" min="0" max="100" value="90" step="1">
                     <span class="weight-label">Luck</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-top: 8px; padding: 0 80px;">
-                    <span class="weight-value" id="valueCompetence">90%</span>
+                    <span class="weight-value" id="valueMerit">90%</span>
                     <span class="weight-value" id="valueLuck">10%</span>
                 </div>
             </div>
@@ -83,7 +83,7 @@
         </div>
         
         <div class="chart-container">
-            <h2>Competence vs Luck Distribution</h2>
+            <h2>Merit vs Luck Distribution</h2>
             <div class="chart-wrapper" style="height: 500px; max-width: 500px; margin: 0 auto;">
                 <canvas id="scatterPlot"></canvas>
             </div>
@@ -96,7 +96,7 @@
                     <tr>
                         <th>Rank</th>
                         <th>Name</th>
-                        <th>Competence</th>
+                        <th>Merit</th>
                         <th>Luck</th>
                         <th>Overall Score</th>
                         <th>Hired?</th>

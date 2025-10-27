@@ -50,10 +50,10 @@ const RED   = 'rgba(255, 100, 100, 1)'
 // =============================================================================
 
 class Applicant {
-    constructor(id, name, score_competence, score_luck) {
+    constructor(id, name, score_merit, score_luck) {
         this.id = id
         this.name = name
-        this.score_competence = score_competence
+        this.score_merit = score_merit
         this.score_luck = score_luck
         this.score_overall = NaN
     }
@@ -90,15 +90,15 @@ function generateName() {
 // Generate applicants, then calculate stats and update UI
 function generateApplicants() {
     const N = get_ui_number_applicants()
-    const dist = get_ui_competence_stats()
+    const dist = get_ui_merit_stats()
     
     applicants = [];
     for (let i = 0; i < N; i++) {
         const id = i + 1
         const name = generateName()
-        const competence = Math.round(normalRandom(dist.mean, dist.standard_deviation))
+        const merit = Math.round(normalRandom(dist.mean, dist.standard_deviation))
         const luck = Math.round(Math.random() * 100)
-        app = new Applicant(id, name, competence, luck)
+        app = new Applicant(id, name, merit, luck)
         applicants.push(app);
     }
 }
@@ -106,7 +106,7 @@ function generateApplicants() {
 // Get weight average of trait scores
 function get_overall_score(app) {
     const weights = get_ui_weight_balance()
-    return (weights.competence * app.score_competence) + (weights.luck * app.score_luck)
+    return (weights.merit * app.score_merit) + (weights.luck * app.score_luck)
 }
 
 // For all applicants: calculate/store overall score, sort all (descending)
@@ -138,13 +138,13 @@ function get_ui_number_hired() {
 }
 
 /**
- * Retrieve UI setting: Competence Statistics (normal distribution)
+ * Retrieve UI setting: Merit Statistics (normal distribution)
  * @returns {{mean: number, standard_deviation: number}} Object containing the
  *          numbers currently entered in the UI elements
  */
-function get_ui_competence_stats() {
-    const mean = document.getElementById('competenceMean')
-    const standard_deviation = document.getElementById('competenceStdDev')
+function get_ui_merit_stats() {
+    const mean = document.getElementById('meritMean')
+    const standard_deviation = document.getElementById('meritStdDev')
     return {
         mean: parseInt(mean.value),
         standard_deviation: parseInt(standard_deviation.value)
@@ -153,15 +153,15 @@ function get_ui_competence_stats() {
 
 /**
  * Retrieve UI setting: Weight Balance
- * @returns {{competence: number, luck: number}} The weights currently selected
+ * @returns {{merit: number, luck: number}} The weights currently selected
  *          in the UI.
  */
 function get_ui_weight_balance() {
     const ui_element = document.getElementById('weightSlider')
-    const weight_competence = parseInt(ui_element.value) / 100
+    const weight_merit = parseInt(ui_element.value) / 100
     return {
-        competence: weight_competence,
-        luck: (1 - weight_competence)
+        merit: weight_merit,
+        luck: (1 - weight_merit)
     }
 }
 
@@ -169,16 +169,16 @@ function get_ui_weight_balance() {
 //                          UI - APPLICANT POOL
 // =============================================================================
 
-// Applicant Pool > Competence Distribution > Update displayed numbers on right
+// Applicant Pool > Merit Distribution > Update displayed numbers on right
 function updateDistributionDisplay() {
-    const dist = get_ui_competence_stats()
+    const dist = get_ui_merit_stats()
     document.getElementById('valueMean').textContent = dist.mean;
     document.getElementById('valueStdDev').textContent = dist.standard_deviation;
 }
 
 // Attach listeners
-document.getElementById('competenceMean').addEventListener('input', updateDistributionDisplay);
-document.getElementById('competenceStdDev').addEventListener('input', updateDistributionDisplay);
+document.getElementById('meritMean').addEventListener('input', updateDistributionDisplay);
+document.getElementById('meritStdDev').addEventListener('input', updateDistributionDisplay);
 
 // Trigger: generate new applicant pool and update visualizations
 function new_applicant_pool() {
@@ -195,7 +195,7 @@ function new_applicant_pool() {
 // Scoring Weights > Weight Balance > Updated displayed numbers below slider
 function update_weight_labels() {
     const weights = get_ui_weight_balance()
-    document.getElementById('valueCompetence').textContent = to_int_percentage(weights.competence)
+    document.getElementById('valueMerit').textContent = to_int_percentage(weights.merit)
     document.getElementById('valueLuck').textContent = to_int_percentage(weights.luck)
 }
 
@@ -271,12 +271,12 @@ function updateScatterPlot() {
     
     // Separate hired and non-hired applicants (include name in data)
     const hiredData = applicants.slice(0, numHired).map(app => ({
-        x: app.score_competence,
+        x: app.score_merit,
         y: app.score_luck,
         name: app.name
     }));
     const notHiredData = applicants.slice(numHired).map(app => ({
-        x: app.score_competence,
+        x: app.score_merit,
         y: app.score_luck,
         name: app.name
     }));
@@ -288,15 +288,15 @@ function updateScatterPlot() {
     // Get weights
     const weights = get_ui_weight_balance()
     
-    // The cutoff line equation: compWeight * competence + luckWeight * luck = cutoffScore
-    // Solving for luck: luck = (cutoffScore - compWeight * competence) / luckWeight
+    // The cutoff line equation: compWeight * merit + luckWeight * luck = cutoffScore
+    // Solving for luck: luck = (cutoffScore - compWeight * merit) / luckWeight
     // Extend the line beyond the plot boundaries
     const boundaryLine = [];
     if (weights.luck > 0.001) {
         // Avoid division by zero
-        // Calculate luck values at the extreme competence values
-        const luckAt0 = (cutoffScore - weights.competence * 0) / weights.luck;
-        const luckAt100 = (cutoffScore - weights.competence * 100) / weights.luck;
+        // Calculate luck values at the extreme merit values
+        const luckAt0 = (cutoffScore - weights.merit * 0) / weights.luck;
+        const luckAt100 = (cutoffScore - weights.merit * 100) / weights.luck;
 
         // Extend beyond visible range
         if ((0 <= luckAt0) && (luckAt0 <= 100)) {
@@ -304,11 +304,11 @@ function updateScatterPlot() {
             boundaryLine.push({ x: 0, y: luckAt0 });
         } else if (100 < luckAt0) {
             // Line starts above plot, find where it enters
-            const compAtLuck100 = (cutoffScore - weights.luck * 100) / weights.competence;
+            const compAtLuck100 = (cutoffScore - weights.luck * 100) / weights.merit;
             boundaryLine.push({ x: compAtLuck100, y: 100 });
         } else {
             // Line starts below plot, find where it enters
-            const compAtLuck0 = (cutoffScore - weights.luck * 0) / weights.competence;
+            const compAtLuck0 = (cutoffScore - weights.luck * 0) / weights.merit;
             boundaryLine.push({ x: compAtLuck0, y: 0 });
         }
         
@@ -317,16 +317,16 @@ function updateScatterPlot() {
             boundaryLine.push({ x: 100, y: luckAt100 });
         } else if (100 < luckAt100) {
             // Line ends above plot, find where it exits
-            const compAtLuck100 = (cutoffScore - weights.luck * 100) / weights.competence;
+            const compAtLuck100 = (cutoffScore - weights.luck * 100) / weights.merit;
             boundaryLine.push({ x: compAtLuck100, y: 100 });
         } else {
             // Line ends below plot, find where it exits
-            const compAtLuck0 = (cutoffScore - weights.luck * 0) / weights.competence;
+            const compAtLuck0 = (cutoffScore - weights.luck * 0) / weights.merit;
             boundaryLine.push({ x: compAtLuck0, y: 0 });
         }
     } else {
         // Vertical line when luck weight is zero
-        const cutoffComp = cutoffScore / weights.competence;
+        const cutoffComp = cutoffScore / weights.merit;
         if (cutoffComp >= 0 && cutoffComp <= 100) {
             boundaryLine.push({ x: cutoffComp, y: 0 });
             boundaryLine.push({ x: cutoffComp, y: 100 });
@@ -412,7 +412,7 @@ function updateScatterPlot() {
                 x: {
                     title: {
                         display: true,
-                        text: 'Competence',
+                        text: 'Merit',
                         font: {
                             size: 14,
                             weight: 'bold'
@@ -453,7 +453,7 @@ function updateScatterPlot() {
                             const point = context.raw;
                             return [
                                 point.name,
-                                `Competence: ${point.x}`,
+                                `Merit: ${point.x}`,
                                 `Luck: ${point.y}`
                             ];
                         }
@@ -499,7 +499,7 @@ function updateTable() {
         row.innerHTML = `
             <td class="rank">#${index + 1}</td>
             <td>${app.name}</td>
-            <td>${app.score_competence}</td>
+            <td>${app.score_merit}</td>
             <td>${app.score_luck}</td>
             <td>${app.score_overall.toFixed(1)}</td>
             <td>${hired_indicator}</td>
