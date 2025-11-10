@@ -54,14 +54,15 @@
         }
 
         .area-polygon {
-            fill: rgba(59, 130, 246, 0.1);
-            stroke: #3b82f6;
+            fill: rgba(59, 130, 246, 0);
+            stroke: rgba(59, 130, 246, 0);
             stroke-width: 2;
             cursor: pointer;
             transition: all 0.2s;
         }
 
-        .area-polygon:hover {
+        .area-polygon:hover,
+        .area-polygon.hovered {
             fill: rgba(59, 130, 246, 0.3);
             stroke: #2563eb;
             stroke-width: 3;
@@ -215,6 +216,45 @@
         .control-btn:hover .rotate-icon {
             transform: rotate(15deg);
         }
+
+        .mode-switcher {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 8px;
+            padding: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+            display: flex;
+            gap: 4px;
+            z-index: 100;
+        }
+
+        .mode-btn {
+            padding: 8px 16px;
+            border: none;
+            background: #f8fafc;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #475569;
+            transition: all 0.2s;
+        }
+
+        .mode-btn:hover {
+            background: #e2e8f0;
+            color: #1e293b;
+        }
+
+        .mode-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .mode-btn.active:hover {
+            background: #5568d3;
+        }
     </style>
 </head>
 <body>
@@ -243,45 +283,107 @@
         <button class="control-btn" id="reset-btn" title="Reset View (R)">⟲</button>
     </div>
 
+    <div class="mode-switcher">
+        <button class="mode-btn active" id="upper-mode-btn">Upper</button>
+        <button class="mode-btn" id="lower-mode-btn">Lower</button>
+    </div>
+
     <script>
-        // Configuration
-        const config = {
-            image_url: 'https://upload.wikimedia.org/wikipedia/commons/e/e2/NE555_astable.png',
-            image_width: 800,
-            image_height: 600,
-            areas: [
-                {
-                    name: 'Power Supply Section',
-                    description: 'Main power input and regulation circuit',
-                    coordinates: [[50, 50], [250, 50], [250, 150], [50, 150]],
-                    details: {
-                        voltage: '5V DC',
-                        current: '500mA',
-                        type: 'Linear Regulator'
+        // Configuration - Two modes with different images and areas
+        const modes = {
+            upper: {
+                image_url: 'assets/map_upper.png',
+                image_width: 1123,
+                image_height: 794,
+                areas: [
+                    {
+                        name: 'NE555 Timer IC',
+                        description: 'The main 555 timer integrated circuit',
+                        coordinates: [[400, 250], [650, 250], [650, 550], [400, 550]],
+                        z_order: 1,
+                        details: {
+                            component: 'NE555',
+                            function: 'Astable Multivibrator',
+                            pins: '8-pin DIP'
+                        }
+                    },
+                    {
+                        name: 'Timing Resistors',
+                        description: 'R1 and R2 resistors that set the frequency',
+                        coordinates: [[250, 150], [380, 150], [380, 350], [250, 350]],
+                        z_order: 2,
+                        details: {
+                            r1: '1kΩ',
+                            r2: '10kΩ',
+                            function: 'Frequency control'
+                        }
+                    },
+                    {
+                        name: 'Timing Capacitor',
+                        description: 'Capacitor that sets the timing period',
+                        coordinates: [[250, 400], [380, 400], [380, 520], [250, 520]],
+                        z_order: 3,
+                        details: {
+                            value: '10µF',
+                            type: 'Electrolytic',
+                            function: 'Timing period'
+                        }
+                    },
+                    {
+                        name: 'Output Load',
+                        description: 'LED and current limiting resistor',
+                        coordinates: [[680, 300], [850, 300], [850, 450], [680, 450]],
+                        z_order: 1,
+                        details: {
+                            led: 'Red LED',
+                            resistor: '330Ω',
+                            current: '~15mA'
+                        }
+                    },
+                    {
+                        name: 'Power Supply',
+                        description: 'VCC connection and decoupling',
+                        coordinates: [[450, 100], [600, 100], [600, 220], [450, 220]],
+                        z_order: 2,
+                        details: {
+                            voltage: '5-15V DC',
+                            decoupling: '0.01µF',
+                            pin: 'Pin 8 (VCC)'
+                        }
                     }
-                },
-                {
-                    name: 'Timer Circuit',
-                    description: '555 timer configured in astable mode',
-                    coordinates: [[300, 200], [500, 200], [550, 300], [450, 400], [300, 350]],
-                    details: {
-                        frequency: '1 Hz',
-                        duty_cycle: '50%',
-                        component: 'NE555'
+                ]
+            },
+            lower: {
+                image_url: 'assets/map_lower.png',
+                image_width: 1123,
+                image_height: 794,
+                areas: [
+                    {
+                        name: 'Ground Connection',
+                        description: 'Circuit ground reference point',
+                        coordinates: [[400, 580], [650, 580], [650, 720], [400, 720]],
+                        z_order: 1,
+                        details: {
+                            pin: 'Pin 1 (GND)',
+                            connection: 'Common ground'
+                        }
+                    },
+                    {
+                        name: 'Discharge Pin',
+                        description: 'Capacitor discharge control',
+                        coordinates: [[200, 500], [350, 500], [350, 650], [200, 650]],
+                        z_order: 2,
+                        details: {
+                            pin: 'Pin 7',
+                            function: 'Discharge path'
+                        }
                     }
-                },
-                {
-                    name: 'Output Stage',
-                    description: 'LED driver and current limiting',
-                    coordinates: [[600, 100], [750, 100], [750, 250], [600, 250]],
-                    details: {
-                        max_current: '20mA',
-                        resistance: '330Ω',
-                        led: 'Red 5mm'
-                    }
-                }
-            ]
+                ]
+            }
         };
+
+        let current_mode = 'upper';
+        const get_current_config = () => modes[current_mode];
 
         // State
         const create_initial_state = () => ({
@@ -311,11 +413,17 @@
         // Create main group
         const g = svg.append('g');
 
+        // Image element (will be updated on mode switch)
+        let image_element = null;
+
         // Transform functions
-        const get_rotation_center = () => ({
-            x: config.image_width / 2,
-            y: config.image_height / 2
-        });
+        const get_rotation_center = () => {
+            const config = get_current_config();
+            return {
+                x: config.image_width / 2,
+                y: config.image_height / 2
+            };
+        };
 
         const apply_transform = () => {
             const center = get_rotation_center();
@@ -398,31 +506,89 @@
             d3.selectAll('.area-polygon').classed('selected', false);
         };
 
-        // Area rendering
+        // Area rendering - sort by z_order and render in order
+        const sorted_areas = [...config.areas].sort((a, b) => {
+            const z_a = a.z_order ?? 0;
+            const z_b = b.z_order ?? 0;
+            return z_a - z_b;
+        });
+
+        const area_elements = [];
+
         const create_area_polygon = (area, index) => {
             const points_string = area.coordinates
                 .map(p => p.join(','))
                 .join(' ');
 
-            return g.append('g')
+            const polygon = g.append('g')
                 .attr('class', 'areas')
                 .append('polygon')
                 .attr('class', 'area-polygon')
                 .attr('points', points_string)
                 .attr('data-index', index)
-                .on('mouseenter', (event) => show_tooltip(area, event))
-                .on('mousemove', (event) => update_tooltip_position(event))
-                .on('mouseleave', () => hide_tooltip())
+                .attr('data-z-order', area.z_order ?? 0)
+                .on('mouseenter', function(event) {
+                    // Only highlight if this is the topmost polygon at this position
+                    const topmost = get_topmost_polygon_at_point(event);
+                    if (topmost === this) {
+                        show_tooltip(area, event);
+                        d3.select(this).classed('hovered', true);
+                    }
+                })
+                .on('mousemove', function(event) {
+                    const topmost = get_topmost_polygon_at_point(event);
+                    if (topmost === this) {
+                        update_tooltip_position(event);
+                    } else {
+                        hide_tooltip();
+                        d3.select(this).classed('hovered', false);
+                    }
+                })
+                .on('mouseleave', function() {
+                    hide_tooltip();
+                    d3.select(this).classed('hovered', false);
+                })
                 .on('click', function(event) {
                     event.stopPropagation();
-                    show_info_panel(area);
-                    d3.selectAll('.area-polygon').classed('selected', false);
-                    d3.select(this).classed('selected', true);
+                    const topmost = get_topmost_polygon_at_point(event);
+                    if (topmost === this) {
+                        show_info_panel(area);
+                        d3.selectAll('.area-polygon').classed('selected', false);
+                        d3.select(this).classed('selected', true);
+                    }
                 });
+            
+            return polygon.node();
         };
 
-        config.areas.forEach((area, index) => {
-            create_area_polygon(area, index);
+        // Helper function to find topmost polygon at mouse position
+        const get_topmost_polygon_at_point = (event) => {
+            const svg_node = svg.node();
+            const pt = svg_node.createSVGPoint();
+            pt.x = event.clientX;
+            pt.y = event.clientY;
+            
+            // Get all polygons under the cursor
+            const elements_at_point = [];
+            area_elements.forEach(el => {
+                if (el.isPointInFill && el.isPointInFill(pt)) {
+                    elements_at_point.push(el);
+                }
+            });
+            
+            // Return the one with highest z-order
+            if (elements_at_point.length === 0) return null;
+            
+            return elements_at_point.reduce((top, current) => {
+                const top_z = parseInt(top.getAttribute('data-z-order')) || 0;
+                const current_z = parseInt(current.getAttribute('data-z-order')) || 0;
+                return current_z > top_z ? current : top;
+            });
+        };
+
+        sorted_areas.forEach((area, index) => {
+            const polygon = create_area_polygon(area, index);
+            area_elements.push(polygon);
         });
 
         // Touch gesture handling
@@ -519,10 +685,21 @@
 
         const snap_to_45_degree_increment = (current_rotation, direction) => {
             const normalized = ((current_rotation % 360) + 360) % 360;
-            const current_increment = Math.round(normalized / 45);
-            const next_increment = direction === 'left' 
-                ? current_increment - 1 
-                : current_increment + 1;
+            const current_increment = normalized / 45;
+            
+            let next_increment;
+            if (direction === 'left') {
+                next_increment = Math.floor(current_increment);
+                if (next_increment === current_increment) {
+                    next_increment -= 1;
+                }
+            } else {
+                next_increment = Math.ceil(current_increment);
+                if (next_increment === current_increment) {
+                    next_increment += 1;
+                }
+            }
+            
             return next_increment * 45;
         };
 

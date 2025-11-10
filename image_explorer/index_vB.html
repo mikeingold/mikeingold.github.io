@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D3.js Interactive Image Map</title>
+    
+    <!-- When splitting into separate files, uncomment these lines: -->
+    <!-- <link rel="stylesheet" href="css/styles.css"> -->
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    
+    <!-- When splitting into separate files, comment out the <style> block below -->
+    <style>
+        /* ============================================
+           STYLES - Ready to move to styles.css
+           ============================================ */
+        
+        /* Reset default styles and set box-sizing for easier layout calculations */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        /* Dark theme base styles, hide scrollbars since we use pan/zoom */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        
+        /* Main container fills viewport and changes cursor based on interaction mode */
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            cursor: grab;
+        }
+        #container.grabbing {
+            cursor: grabbing;
+        }
+        /* Crosshair cursor during polygon tracing for precision */
+        #container.tracing {
+            cursor: crosshair !important;
+        }
+        
+        /* Ensure SVG fills container without gaps */
+        svg {
+            display: block;
+        }
+        
+        /* Polygon overlay styling - semi-transparent with hover effects */
+        .polygon-area {
+            fill: rgba(66, 153, 225, 0.3);
+            stroke: #4299e1;
+            stroke-width: 2;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .polygon-area:hover {
+            fill: rgba(66, 153, 225, 0.5);
+            stroke: #63b3ed;
+            stroke-width: 3;
+        }
+        
+        /* User-generated polygons - green color to distinguish from built-in */
+        .polygon-area.user-generated {
+            fill: rgba(72, 187, 120, 0.3);
+            stroke: #48bb78;
+        }
+        .polygon-area.user-generated:hover {
+            fill: rgba(72, 187, 120, 0.5);
+            stroke: #68d391;
+        }
+        
+        /* Tooltip for displaying polygon metadata on hover */
+        .tooltip {
+            position: absolute;
+            background: rgba(26, 32, 44, 0.95);
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 8px;
+            pointer-events: none; /* Prevents tooltip from interfering with mouse events */
+            opacity: 0;
+            transition: opacity 0.2s;
+            max-width: 300px;
+            border: 1px solid #4299e1;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+        }
+        .tooltip.visible {
+            opacity: 1;
+        }
+        .tooltip h3 {
+            margin: 0 0 8px 0;
+            color: #4299e1;
+            font-size: 16px;
+        }
+        .tooltip p {
+            margin: 0;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        /* Control panel in top-right corner */
+        .controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(26, 32, 44, 0.95);
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #4299e1;
+            z-index: 100;
+            display: none;
+        }
+        
+        /* Round control buttons in bottom corners */
+        .round-btn {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: rgba(66, 153, 225, 0.9);
+            border: 2px solid #4299e1;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            user-select: none;
+            position: absolute;
+            z-index: 100;
+        }
+        .round-btn:hover {
+            background: rgba(66, 153, 225, 1);
+            transform: scale(1.05);
+        }
+        .round-btn:active {
+            transform: scale(0.95);
+        }
+        
+        /* Reset button - positioned right of dev mode button */
+        #reset-btn {
+            bottom: 20px;
+            left: 88px;
+        }
+        
+        /* Dev mode toggle button - bottom-left corner */
+        #dev-mode-toggle {
+            bottom: 20px;
+            left: 20px;
+        }
+        /* Active state - changes to orange to indicate "on" */
+        #dev-mode-toggle.active {
+            background: rgba(237, 137, 54, 0.9);
+            border-color: #ed8936;
+        }
+        #dev-mode-toggle.active:hover {
+            background: rgba(237, 137, 54, 1);
+        }
+        
+        /* Zoom control buttons - stacked vertically in bottom-right */
+        .zoom-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 100;
+        }
+        #zoom-in-btn {
+            position: static;
+        }
+        #zoom-out-btn {
+            position: static;
+        }
+        
+        /* Dev mode controls panel - appears above toggle button on left side */
+        .dev-controls {
+            position: absolute;
+            bottom: 88px;
+            left: 20px;
+            background: rgba(26, 32, 44, 0.95);
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #4299e1;
+            z-index: 100;
+            display: none;
+            min-width: 200px;
+        }
+        .dev-controls.visible {
+            display: block;
+        }
+        .dev-controls button {
+            display: block;
+            width: 100%;
+            margin: 8px 0;
+            padding: 10px 16px;
+            background: #4299e1;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .dev-controls button:hover {
+            background: #3182ce;
+        }
+        .dev-controls button:first-child {
+            margin-top: 0;
+        }
+        
+        /* Section label for dev mode controls */
+        .dev-mode-label {
+            display: block;
+            margin: 0 0 8px 0;
+            font-size: 12px;
+            color: #a0aec0;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        
+        /* Styling for polygon being drawn in dev mode - orange to distinguish from saved polygons */
+        .drawing-polygon {
+            fill: rgba(237, 137, 54, 0.3);
+            stroke: #ed8936;
+            stroke-width: 2;
+        }
+        /* Vertex points during tracing */
+        .drawing-point {
+            fill: #ed8936;
+            stroke: #fff;
+            stroke-width: 2;
+        }
+        
+        /* Modal overlay for collecting polygon metadata */
+        #dev-modal,
+        #reset-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        #dev-modal.visible,
+        #reset-modal.visible {
+            display: flex;
+        }
+        
+        /* Modal content card */
+        .modal-content {
+            background: #2d3748;
+            padding: 24px;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            border: 1px solid #4299e1;
+        }
+        .modal-content h2 {
+            margin: 0 0 20px 0;
+            color: #4299e1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .modal-content h2 .copy-icon {
+            cursor: pointer;
+            font-size: 20px;
+            padding: 8px;
+            border-radius: 6px;
+            transition: background 0.2s;
+            user-select: none;
+        }
+        .modal-content h2 .copy-icon:hover {
+            background: rgba(66, 153, 225, 0.2);
+        }
+        .modal-content h2 .copy-icon:active {
+            background: rgba(66, 153, 225, 0.4);
+        }
+        .modal-content label {
+            display: block;
+            margin: 12px 0 4px 0;
+            font-size: 14px;
+            color: #a0aec0;
+        }
+        .modal-content input,
+        .modal-content textarea {
+            width: 100%;
+            padding: 10px;
+            background: #1a202c;
+            border: 1px solid #4a5568;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        /* Monospace font for JSON output */
+        .modal-content textarea {
+            min-height: 150px;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+        }
+        
+        /* Modal action buttons */
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .modal-buttons button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .modal-buttons .primary {
+            background: #4299e1;
+            color: white;
+        }
+        .modal-buttons .primary:hover {
+            background: #3182ce;
+        }
+        .modal-buttons .secondary {
+            background: #4a5568;
+            color: white;
+        }
+        .modal-buttons .secondary:hover {
+            background: #2d3748;
+        }
+        .modal-buttons .danger {
+            background: #e53e3e;
+            color: white;
+        }
+        .modal-buttons .danger:hover {
+            background: #c53030;
+        }
+        .modal-buttons .success {
+            background: #48bb78;
+            color: white;
+        }
+        .modal-buttons .success:hover {
+            background: #38a169;
+        }
+        
+        /* Image upload control - hidden by default, shown in dev mode */
+        .image-upload {
+            display: none;
+        }
+    </style>
+    <!-- End of styles block - when splitting, move everything above to css/styles.css -->
+</head>
+<body>
+    <!-- ============================================
+         HTML STRUCTURE - Ready to move to index.html
+         ============================================ -->
+    
+    <div id="container"></div>
+    
+    <div class="tooltip" id="tooltip">
+        <h3 id="tooltip-title"></h3>
+        <p id="tooltip-description"></p>
+    </div>
+
+    <!-- Hidden file input for image upload -->
+    <input type="file" id="image-upload" class="image-upload" accept="image/*">
+
+    <!-- Dev mode toggle button - bottom-left corner -->
+    <button class="round-btn" id="dev-mode-toggle" title="Toggle Developer Mode">
+        <span>⚙</span>
+    </button>
+
+    <!-- Dev mode controls panel - appears when dev mode is active -->
+    <div class="dev-controls" id="dev-controls">
+        <span class="dev-mode-label">Developer Tools</span>
+        <button id="load-image-btn">Load Image</button>
+        <button id="trace-btn">Start Tracing</button>
+        <button id="finish-btn" style="display:none;">Finish Polygon</button>
+        <button id="cancel-btn" style="display:none;">Cancel</button>
+    </div>
+
+    <!-- Reset button - bottom-right, left of zoom controls -->
+    <button class="round-btn" id="reset-btn" title="Reset View & Clear User Polygons">
+        <span>↻</span>
+    </button>
+
+    <!-- Zoom control buttons in bottom-right -->
+    <div class="zoom-controls">
+        <button class="round-btn" id="zoom-in-btn" title="Zoom In">
+            <span>+</span>
+        </button>
+        <button class="round-btn" id="zoom-out-btn" title="Zoom Out">
+            <span>−</span>
+        </button>
+    </div>
+
+    <div id="dev-modal">
+        <div class="modal-content">
+            <h2>
+                <span>New Polygon Data</span>
+                <span class="copy-icon" id="copy-icon" title="Copy JSON">📋</span>
+            </h2>
+            <label>ID</label>
+            <input type="text" id="polygon-id" placeholder="unique-id">
+            <label>Name</label>
+            <input type="text" id="polygon-name" placeholder="Feature Name">
+            <label>Description</label>
+            <input type="text" id="polygon-desc" placeholder="Brief description">
+            <label>JSON Output</label>
+            <textarea id="json-output" readonly></textarea>
+            <div class="modal-buttons">
+                <button class="success" id="keep-polygon-btn">Keep</button>
+                <button class="danger" id="discard-polygon-btn">Discard</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset confirmation modal -->
+    <div id="reset-modal">
+        <div class="modal-content">
+            <h2>Confirm Reset</h2>
+            <p style="margin-bottom: 20px; line-height: 1.6;">This will reset the view and delete all user-generated polygons. This action cannot be undone.</p>
+            <div class="modal-buttons">
+                <button class="danger" id="confirm-reset-btn">Reset Everything</button>
+                <button class="secondary" id="cancel-reset-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- When splitting into separate files, comment out the <script> block below -->
+    <!-- and uncomment this line instead: -->
+    <!-- <script src="js/map-viewer.js"></script> -->
+
+    <script>
+        /* ============================================
+           JAVASCRIPT - Ready to move to map-viewer.js
+           ============================================ */
+        
+        // ========================================
+        // DATA INITIALIZATION
+        // ========================================
+        
+        const sampleImageURL = 'assets/map_upper.png';
+        
+        // Example polygon features - coordinates are in pixel space relative to image
+        const sampleFeatures = [
+            {
+                "id": "1000",
+                "name": "Power Connector",
+                "description": "Connects to power cable.",
+                "coordinates": [[84,23],[85,256],[132,256],[130,238],[220,237],[221,24]]
+            },
+            {
+                "id": "1001",
+                "name": "USB Connector",
+                "description": "Connects to USB cable.",
+                "coordinates": [[538,54],[533,162],[693,161],[690,52]]
+            },
+            {
+                "id": "1002",
+                "name": "Reset Button",
+                "description": "Button to reset device.",
+                "coordinates": [[704,229],[838,231],[840,105],[701,112]]
+            },
+            {
+                "id": "1003",
+                "name": "CPU",
+                "description": "Main processor.",
+                "coordinates": [[354,886],[461,997],[566,879],[455,780]]
+            }
+        ];
+
+        // Application state variables
+        let features = [...sampleFeatures]; // Current features array (cloned to avoid mutation)
+        let userGeneratedPolygons = []; // Polygons created by user in dev mode (session only)
+        let currentImage = sampleImageURL; // Currently loaded image URL
+        let devMode = false; // Whether developer mode is active
+        let tracing = false; // Whether user is currently tracing a polygon
+        let tracingPoints = []; // Array of [x, y] coordinates for polygon being traced
+
+        // ========================================
+        // D3.JS SETUP
+        // ========================================
+        
+        // Viewport dimensions - will be updated on resize
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+
+        // D3 references - will be initialized after DOM loads
+        let svg, g, zoom, tooltip;
+
+        // ========================================
+        // IMAGE LOADING AND RENDERING
+        // ========================================
+        
+        /**
+         * Loads an image and sets up the initial view
+         * Calculates appropriate zoom level to fit image in viewport
+         * @param {string} url - Image URL or data URL to load
+         */
+        function loadImage(url) {
+            // Clear any existing content (image and polygons)
+            g.selectAll('*').remove();
+            
+            // Use native Image object to get dimensions before rendering
+            const img = new Image();
+            img.onload = function() {
+                const imgWidth = this.width;
+                const imgHeight = this.height;
+                
+                // Calculate scale to fit image in viewport with 90% coverage
+                // This leaves some margin around the edges
+                const scale = Math.min(width / imgWidth, height / imgHeight) * 0.9;
+                
+                // Center the image in the viewport
+                const offsetX = (width - imgWidth * scale) / 2;
+                const offsetY = (height - imgHeight * scale) / 2;
+
+                // Add image element to SVG at native resolution
+                // D3 zoom will handle the scaling
+                g.append('image')
+                    .attr('href', url)
+                    .attr('width', imgWidth)
+                    .attr('height', imgHeight);
+
+                // Apply initial transform to center and scale the image
+                svg.call(zoom.transform, d3.zoomIdentity
+                    .translate(offsetX, offsetY)
+                    .scale(scale));
+
+                // Render polygon overlays on top of image after a short delay
+                // This ensures the transform is applied before rendering polygons
+                setTimeout(() => {
+                    renderFeatures();
+                }, 10);
+            };
+            img.onerror = function() {
+                console.error('Failed to load image:', url);
+            };
+            img.src = url;
+        }
+
+        /**
+         * Renders all polygon features on the map
+         * Includes both sample features and user-generated polygons
+         * Attaches hover events for tooltip display
+         */
+        function renderFeatures() {
+            // Remove any existing polygons to avoid duplicates
+            g.selectAll('.polygon-area').remove();
+            
+            // Mark user-generated polygons with a flag for styling
+            const allFeatures = [
+                ...features.map(f => ({...f, isUserGenerated: false})),
+                ...userGeneratedPolygons.map(f => ({...f, isUserGenerated: true}))
+            ];
+            
+            // Create polygon elements from features data using D3 data binding
+            g.selectAll('.polygon-area')
+                .data(allFeatures)
+                .enter()
+                .append('polygon')
+                .attr('class', d => d.isUserGenerated ? 'polygon-area user-generated' : 'polygon-area')
+                // Convert coordinate arrays to SVG points format: "x1,y1 x2,y2 x3,y3"
+                .attr('points', d => d.coordinates.map(c => c.join(',')).join(' '))
+                .on('mouseenter', function(event, d) {
+                    // Don't show tooltips while tracing to avoid interference with polygon drawing
+                    if (!tracing) {
+                        d3.select('#tooltip-title').text(d.name);
+                        d3.select('#tooltip-description').text(d.description);
+                        tooltip.classed('visible', true);
+                    }
+                })
+                .on('mousemove', function(event) {
+                    // Update tooltip position to follow cursor with slight offset
+                    if (!tracing) {
+                        tooltip
+                            .style('left', (event.pageX + 15) + 'px')
+                            .style('top', (event.pageY + 15) + 'px');
+                    }
+                })
+                .on('mouseleave', function() {
+                    // Hide tooltip when mouse leaves polygon
+                    tooltip.classed('visible', false);
+                });
+        }
+
+        // ========================================
+        // VIEW CONTROLS
+        // ========================================
+        
+        /**
+         * Resets zoom/pan to original fitted view
+         * If user-generated polygons exist, shows confirmation modal first
+         */
+        function resetZoom() {
+            // Check if there are user-generated polygons to warn about
+            if (userGeneratedPolygons.length > 0) {
+                document.getElementById('reset-modal').classList.add('visible');
+            } else {
+                // No user polygons, just reset
+                performReset();
+            }
+        }
+
+        /**
+         * Performs the actual reset operation
+         * Clears user polygons and reloads the image
+         */
+        function performReset() {
+            userGeneratedPolygons = [];
+            loadImage(currentImage);
+            closeResetModal();
+        }
+
+        /**
+         * Closes the reset confirmation modal
+         */
+        function closeResetModal() {
+            document.getElementById('reset-modal').classList.remove('visible');
+        }
+
+        /**
+         * Handles keyboard shortcuts during tracing mode
+         * Enter: Complete polygon and open metadata modal
+         * Escape: Cancel tracing and discard current polygon
+         * @param {KeyboardEvent} event - The keyboard event
+         */
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && tracing) {
+                finishPolygon();
+            } else if (event.key === 'Escape' && tracing) {
+                cancelTracing();
+            }
+        }
+
+        // ========================================
+        // DEVELOPER MODE CONTROLS
+        // ========================================
+        
+        /**
+         * Toggles developer mode on/off
+         * Shows/hides dev controls panel and updates toggle button appearance
+         */
+        function toggleDevMode() {
+            devMode = !devMode;
+            const toggleBtn = document.getElementById('dev-mode-toggle');
+            const devControls = document.getElementById('dev-controls');
+            
+            if (devMode) {
+                // Enable dev mode - show controls panel and change button color
+                toggleBtn.classList.add('active');
+                devControls.classList.add('visible');
+            } else {
+                // Disable dev mode - hide controls and clean up
+                toggleBtn.classList.remove('active');
+                devControls.classList.remove('visible');
+                cancelTracing(); // Clean up if tracing was in progress
+            }
+        }
+
+        /**
+         * Begins polygon tracing mode
+         * Changes cursor to crosshair and enables click handler for vertex placement
+         */
+        function startTracing() {
+            tracing = true;
+            tracingPoints = [];
+            
+            // Update UI state - change cursor and button visibility
+            document.getElementById('container').classList.add('tracing');
+            document.getElementById('trace-btn').style.display = 'none';
+            document.getElementById('finish-btn').style.display = 'block';
+            document.getElementById('cancel-btn').style.display = 'block';
+            
+            // Clear any previous drawing artifacts from abandoned tracings
+            g.selectAll('.drawing-polygon, .drawing-point').remove();
+            
+            // Enable click handling for placing vertices
+            svg.on('click', handleClick);
+            // Enable keyboard shortcuts for finishing/canceling
+            document.addEventListener('keydown', handleKeyPress);
+            // Hide any visible tooltips to avoid confusion
+            tooltip.classed('visible', false);
+        }
+
+        /**
+         * Handles clicks during tracing to add polygon vertices
+         * Updates visual feedback by drawing points and connecting lines
+         * @param {MouseEvent} event - The click event
+         */
+        function handleClick(event) {
+            if (!tracing) return;
+            
+            // Get click coordinates in image space (accounts for current zoom/pan transform)
+            const [x, y] = d3.pointer(event, g.node());
+            // Round coordinates to avoid sub-pixel precision issues
+            tracingPoints.push([Math.round(x), Math.round(y)]);
+            
+            // Draw a circle at the clicked point to mark the vertex
+            g.append('circle')
+                .attr('class', 'drawing-point')
+                .attr('cx', x)
+                .attr('cy', y)
+                .attr('r', 5);
+            
+            // After 2+ points, show the polygon shape preview
+            if (tracingPoints.length > 1) {
+                // Remove old polygon preview and redraw with new point
+                g.selectAll('.drawing-polygon').remove();
+                g.append('polygon')
+                    .attr('class', 'drawing-polygon')
+                    .attr('points', tracingPoints.map(c => c.join(',')).join(' '));
+            }
+        }
+
+        /**
+         * Completes the current polygon and shows metadata input modal
+         * Validates that polygon has at least 3 points
+         */
+        function finishPolygon() {
+            // Polygons need at least 3 vertices to be valid
+            if (tracingPoints.length < 3) {
+                alert('Please trace at least 3 points to create a polygon');
+                return;
+            }
+            
+            // Exit tracing mode but keep visual artifacts for reference
+            tracing = false;
+            svg.on('click', null);
+            
+            // Show modal for metadata input
+            const modal = document.getElementById('dev-modal');
+            modal.classList.add('visible');
+            
+            // Reset form fields to defaults
+            document.getElementById('polygon-id').value = '';
+            document.getElementById('polygon-name').value = '';
+            document.getElementById('polygon-desc').value = '';
+            // Generate initial JSON with default values
+            updateJSON();
+        }
+
+        /**
+         * Cancels tracing and cleans up visual artifacts
+         * Returns UI to dev mode ready state
+         */
+        function cancelTracing() {
+            tracing = false;
+            tracingPoints = [];
+            // Remove click handler
+            svg.on('click', null);
+            // Remove keyboard event listener
+            document.removeEventListener('keydown', handleKeyPress);
+            
+            // Restore normal grab cursor
+            document.getElementById('container').classList.remove('tracing');
+            
+            // Remove all drawing artifacts (points and polygon preview)
+            g.selectAll('.drawing-polygon, .drawing-point').remove();
+            
+            // Reset button visibility to initial dev mode state
+            document.getElementById('trace-btn').style.display = 'block';
+            document.getElementById('finish-btn').style.display = 'none';
+            document.getElementById('cancel-btn').style.display = 'none';
+        }
+
+        // ========================================
+        // JSON GENERATION AND MODAL
+        // ========================================
+        
+        /**
+         * Generates JSON output from form inputs and traced coordinates
+         * Formats with coordinates on single line to match example format
+         */
+        function updateJSON() {
+            // Get form values with fallback defaults
+            const id = document.getElementById('polygon-id').value || 'new-polygon';
+            const name = document.getElementById('polygon-name').value || 'New Feature';
+            const desc = document.getElementById('polygon-desc').value || 'Feature description';
+            
+            // Stringify coordinates array on single line (compact format)
+            const coordsString = JSON.stringify(tracingPoints);
+            
+            // Build formatted JSON string manually for precise formatting control
+            // Note: Template literal is NOT indented because whitespace is preserved in the output
+            // Starting at column 0 ensures clean JSON without extra leading spaces
+            const jsonString = 
+`{
+    "id": "${id}",
+    "name": "${name}",
+    "description": "${desc}",
+    "coordinates": ${coordsString}
+}`;
+            
+            document.getElementById('json-output').value = jsonString;
+        }
+
+        /**
+         * Copies JSON output to clipboard
+         * Shows confirmation alert on success
+         */
+        function copyJSON() {
+            const textarea = document.getElementById('json-output');
+            textarea.select();
+            document.execCommand('copy');
+            
+            // Visual feedback
+            const copyIcon = document.getElementById('copy-icon');
+            const originalText = copyIcon.textContent;
+            copyIcon.textContent = '✓';
+            setTimeout(() => {
+                copyIcon.textContent = originalText;
+            }, 1000);
+        }
+
+        /**
+         * Keeps the current polygon, adds it to user-generated polygons
+         * Closes modal and cleans up tracing state
+         */
+        function keepPolygon() {
+            // Get form values
+            const id = document.getElementById('polygon-id').value || 'new-polygon';
+            const name = document.getElementById('polygon-name').value || 'New Feature';
+            const desc = document.getElementById('polygon-desc').value || 'Feature description';
+            
+            // Create polygon object
+            const newPolygon = {
+                id: id,
+                name: name,
+                description: desc,
+                coordinates: [...tracingPoints]
+            };
+            
+            // Add to user-generated polygons
+            userGeneratedPolygons.push(newPolygon);
+            
+            // Re-render to show the new polygon
+            renderFeatures();
+            
+            // Close modal and clean up
+            closeModal();
+        }
+
+        /**
+         * Discards the current polygon
+         * Closes modal and cleans up tracing state without saving
+         */
+        function discardPolygon() {
+            closeModal();
+        }
+
+        /**
+         * Closes the metadata modal and cleans up tracing state
+         * Returns to dev mode ready state
+         */
+        function closeModal() {
+            document.getElementById('dev-modal').classList.remove('visible');
+            cancelTracing();
+        }
+
+        /**
+         * Handles custom image upload from file input
+         * Clears all polygons (features and user-generated) since coordinates are image-specific
+         */
+        function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    // Store data URL for future resets
+                    currentImage = event.target.result;
+                    // Clear all polygons since they won't match new image dimensions/content
+                    features = [];
+                    userGeneratedPolygons = [];
+                    loadImage(currentImage);
+                };
+                // Convert file to data URL
+                reader.readAsDataURL(file);
+            }
+        }
+
+        /**
+         * Triggers the hidden file input when the styled button is clicked
+         */
+        function triggerFileInput() {
+            document.getElementById('image-upload').click();
+        }
+
+        /**
+         * Handles window resize events
+         * Updates SVG dimensions and maintains current view
+         */
+        function handleResize() {
+            // Update viewport dimensions
+            width = window.innerWidth;
+            height = window.innerHeight;
+            
+            // Update SVG size
+            svg.attr('width', width)
+               .attr('height', height);
+        }
+
+        /**
+         * Zooms in by a fixed factor
+         */
+        function zoomIn() {
+            svg.transition()
+                .duration(300)
+                .call(zoom.scaleBy, 1.5);
+        }
+
+        /**
+         * Zooms out by a fixed factor
+         */
+        function zoomOut() {
+            svg.transition()
+                .duration(300)
+                .call(zoom.scaleBy, 0.67);
+        }
+
+        // ========================================
+        // EVENT LISTENER SETUP
+        // ========================================
+        
+        /**
+         * Initializes the application after DOM is fully loaded
+         * Sets up all event listeners and loads the initial image
+         */
+        function initializeApp() {
+            // Initialize D3 references
+            svg = d3.select('#container')
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height);
+
+            // Create a group element for zoom/pan transformations
+            // This allows us to transform the entire image and polygons together
+            g = svg.append('g');
+
+            // Configure zoom behavior with scale limits
+            zoom = d3.zoom()
+                .scaleExtent([0.5, 10]) // Min 50% zoom out, max 10x zoom in
+                .on('zoom', (event) => {
+                    // Apply zoom/pan transformation to the group containing image and polygons
+                    g.attr('transform', event.transform);
+                });
+
+            // Apply zoom behavior to SVG element
+            svg.call(zoom);
+
+            // Reference to tooltip element for showing polygon metadata
+            tooltip = d3.select('#tooltip');
+
+            // Attach event listeners to buttons using addEventListener (modern approach)
+            document.getElementById('reset-btn').addEventListener('click', resetZoom);
+            document.getElementById('zoom-in-btn').addEventListener('click', zoomIn);
+            document.getElementById('zoom-out-btn').addEventListener('click', zoomOut);
+            document.getElementById('dev-mode-toggle').addEventListener('click', toggleDevMode);
+            document.getElementById('trace-btn').addEventListener('click', startTracing);
+            document.getElementById('finish-btn').addEventListener('click', finishPolygon);
+            document.getElementById('cancel-btn').addEventListener('click', cancelTracing);
+            document.getElementById('copy-icon').addEventListener('click', copyJSON);
+            document.getElementById('keep-polygon-btn').addEventListener('click', keepPolygon);
+            document.getElementById('discard-polygon-btn').addEventListener('click', discardPolygon);
+            document.getElementById('confirm-reset-btn').addEventListener('click', performReset);
+            document.getElementById('cancel-reset-btn').addEventListener('click', closeResetModal);
+            document.getElementById('load-image-btn').addEventListener('click', triggerFileInput);
+            document.getElementById('image-upload').addEventListener('change', handleImageUpload);
+
+            // Attach input event listeners to update JSON in real-time as user types
+            document.getElementById('polygon-id').addEventListener('input', updateJSON);
+            document.getElementById('polygon-name').addEventListener('input', updateJSON);
+            document.getElementById('polygon-desc').addEventListener('input', updateJSON);
+
+            // Handle window resize to keep SVG properly sized
+            window.addEventListener('resize', handleResize);
+
+            // Load sample image and features on initialization
+            loadImage(currentImage);
+        }
+
+        // ========================================
+        // INITIALIZATION
+        // ========================================
+        
+        // Wait for DOM to be fully loaded before initializing
+        // This ensures all elements are available when we try to access them
+        document.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+    <!-- End of script block - when splitting, move everything above to js/map-viewer.js -->
+</body>
+</html>
