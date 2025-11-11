@@ -17,7 +17,7 @@
 /* Dark mode inspired base style */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    overflow: hidden;  /* no scrollbars since pan/zoom handled within map */
+    overflow: hidden;  /* no scrollbars */
     background: #1a1a2e;  /* page background color */
     color: #eee;  /* default to white text */
 }
@@ -39,6 +39,17 @@ body {
 /* Ensure SVG fills container without gaps */
 svg {
     display: block;
+}
+
+/* Banner at top of page */
+#banner {
+    background: #48bb78;
+    color: black;
+    text-align: center;
+    font-weight: bold;
+    padding: 0.2em 0;
+    user-select: none; /* text is not selectable */
+    z-index: 1000;
 }
 
 /* ============================================
