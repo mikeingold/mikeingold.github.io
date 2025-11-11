@@ -467,6 +467,10 @@ function discardPolygon() {
     cancelTracing();
 }
 
+// ========================================
+//   DEV TOOLS: IMAGE UPLOAD
+// ========================================
+
 /**
  * Handles custom image upload from file input
  * Clears all polygons (features and user-generated) since coordinates are image-specific
@@ -494,6 +498,10 @@ function handleImageUpload(e) {
 function triggerFileInput() {
     document.getElementById('image-upload').click();
 }
+
+// ========================================
+//   MAP NAVIGATION
+// ========================================
 
 /**
  * Handles window resize events
@@ -541,13 +549,18 @@ function initializeApp() {
     // This allows us to transform the entire image and polygons together
     g = svg.append('g');
 
+    // Apply zoom/pan transformation to the group containing image and polygons
+    function zoomed(event) {
+        g.attr('transform', event.transform)
+    }
+
     // Configure zoom behavior with scale limits
+    const container = d3.select('#container');
     zoom = d3.zoom()
         .scaleExtent([0.5, 10]) // Min-max zoom scales
-        .on('zoom', (event) => {
-            // Apply zoom/pan transformation to the group containing image and polygons
-            g.attr('transform', event.transform);
-        });
+        .on('start', () => container.classed('grabbing', true))
+        .on('zoom', zoomed)
+        .on('end',   () => container.classed('grabbing', false))
 
     // Apply zoom behavior to SVG element
     svg.call(zoom);

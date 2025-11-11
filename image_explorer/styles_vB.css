@@ -1,5 +1,10 @@
+:root {
+    --btn-radius: 24px;
+    --ui-edge-pad: 20px;
+}
+
 /* ============================================
-    STYLES - Ready to move to styles.css
+          Overall Page Layout + Basics
     ============================================ */
 
 /* Reset default styles and set box-sizing for easier layout calculations */
@@ -9,12 +14,12 @@
     box-sizing: border-box;
 }
 
-/* Dark theme base styles, hide scrollbars since we use pan/zoom */
+/* Dark mode inspired base style */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    overflow: hidden;
-    background: #1a1a2e;
-    color: #eee;
+    overflow: hidden;  /* no scrollbars since pan/zoom handled within map */
+    background: #1a1a2e;  /* page background color */
+    color: #eee;  /* default to white text */
 }
 
 /* Main container fills viewport and changes cursor based on interaction mode */
@@ -22,14 +27,13 @@ body {
     width: 100vw;
     height: 100vh;
     position: relative;
-    cursor: grab;
+    cursor: grab;  /* show open hand cursor to indicate clicking will pan map */
 }
 #container.grabbing {
-    cursor: grabbing;
+    cursor: grabbing; /* show grabbing hand cursor to indicate actively panning */
 }
-/* Crosshair cursor during polygon tracing for precision */
 #container.tracing {
-    cursor: crosshair !important;
+    cursor: crosshair !important; /* show crosshairs cursor when tracing polygons */
 }
 
 /* Ensure SVG fills container without gaps */
@@ -37,7 +41,11 @@ svg {
     display: block;
 }
 
-/* Polygon overlay styling - semi-transparent with hover effects */
+/* ============================================
+                Mapped Polygons
+    ============================================ */
+
+/* Polygon overlays */
 .polygon-area {
     fill: rgba(66, 153, 225, 0.3);
     stroke: #4299e1;
@@ -51,7 +59,7 @@ svg {
     stroke-width: 3;
 }
 
-/* User-generated polygons - green color to distinguish from built-in */
+/* Completed user-generated polygon overlays */
 .polygon-area.user-generated {
     fill: rgba(72, 187, 120, 0.3);
     stroke: #48bb78;
@@ -60,6 +68,23 @@ svg {
     fill: rgba(72, 187, 120, 0.5);
     stroke: #68d391;
 }
+
+/* In-progress user-generated polygon overlays */
+.drawing-polygon {
+    fill: rgba(237, 137, 54, 0.3);
+    stroke: #ed8936;
+    stroke-width: 2;
+}
+/* Vertex points during tracing */
+.drawing-point {
+    fill: #ed8936;
+    stroke: #fff;
+    stroke-width: 2;
+}
+
+/* ============================================
+                  Hover Tooltips
+    ============================================ */
 
 /* Tooltip for displaying polygon metadata on hover */
 .tooltip {
@@ -90,35 +115,31 @@ svg {
     line-height: 1.4;
 }
 
-/* Control panel in top-right corner */
-.controls {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    background: rgba(26, 32, 44, 0.95);
-    padding: 16px;
-    border-radius: 8px;
-    border: 1px solid #4299e1;
-    z-index: 100;
-    display: none;
-}
+/* ============================================
+                    Buttons
+    ============================================ */
 
-/* Round control buttons in bottom corners */
+/* Standard round UI button template */
 .round-btn {
-    width: 56px;
-    height: 56px;
+    /* geometry */
+    width: calc(2 * var(--btn-radius));
+    height: calc(2 * var(--btn-radius));
     border-radius: 50%;
+    /* style */
     background: rgba(66, 153, 225, 0.9);
     border: 2px solid #4299e1;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    /* text style */
     color: white;
     font-size: 24px;
-    cursor: pointer;
-    display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-    user-select: none;
+    /* behavior */
+    cursor: pointer; /* looks like finger pressing button */
+    transition: all 0.3s;  /* between passive and hover/active states */
+    user-select: none; /* text is not selectable */
+    /* positioning */
+    display: flex;
     position: absolute;
     z-index: 100;
 }
@@ -130,19 +151,14 @@ svg {
     transform: scale(0.95);
 }
 
-/* Reset button - positioned right of dev mode button */
-#reset-btn {
-    bottom: 20px;
-    left: 88px;
-}
-
-/* Dev mode toggle button - bottom-left corner */
+/* Dev Tools toggle button */
 #dev-mode-toggle {
-    bottom: 20px;
-    left: 20px;
+    /* positioned relative to botttom-left corner of window */
+    bottom: var(--ui-edge-pad);
+    left: var(--ui-edge-pad);
 }
-/* Active state - changes to orange to indicate "on" */
 #dev-mode-toggle.active {
+    /* changes to orange to indicate active state */
     background: rgba(237, 137, 54, 0.9);
     border-color: #ed8936;
 }
@@ -150,11 +166,18 @@ svg {
     background: rgba(237, 137, 54, 1);
 }
 
+/* Reset button */
+#reset-btn {
+    /* along bottom edge, 2nd button */
+    bottom: var(--ui-edge-pad);
+    left: calc(2 * var(--ui-edge-pad) + 2 * var(--btn-radius));
+}
+
 /* Zoom control buttons - stacked vertically in bottom-right */
 .zoom-controls {
     position: absolute;
-    bottom: 20px;
-    right: 20px;
+    bottom: var(--ui-edge-pad);
+    right: var(--ui-edge-pad);
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -167,18 +190,24 @@ svg {
     position: static;
 }
 
+/* ============================================
+                Dev Tools Panel
+    ============================================ */
+
 /* Dev mode controls panel - appears above toggle button on left side */
 .dev-controls {
+    /* position and size */
     position: absolute;
-    bottom: 88px;
-    left: 20px;
+    bottom: calc(2 * var(--ui-edge-pad) + 2 * var(--btn-radius));
+    left: var(--ui-edge-pad);
+    z-index: 100;
+    min-width: 200px;
+    /* style */
     background: rgba(26, 32, 44, 0.95);
-    padding: 16px;
     border-radius: 8px;
     border: 1px solid #4299e1;
-    z-index: 100;
-    display: none;
-    min-width: 200px;
+    display: none; /* not visible when inactive */
+    padding: var(--ui-edge-pad);
 }
 .dev-controls.visible {
     display: block;
@@ -214,20 +243,10 @@ svg {
     font-weight: 600;
 }
 
-/* Styling for polygon being drawn in dev mode - orange to distinguish from saved polygons */
-.drawing-polygon {
-    fill: rgba(237, 137, 54, 0.3);
-    stroke: #ed8936;
-    stroke-width: 2;
-}
-/* Vertex points during tracing */
-.drawing-point {
-    fill: #ed8936;
-    stroke: #fff;
-    stroke-width: 2;
-}
+/* ============================================
+                     Modals
+    ============================================ */
 
-/* Modal overlay for collecting polygon metadata */
 #dev-modal,
 #reset-modal {
     display: none;

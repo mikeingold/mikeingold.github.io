@@ -19,21 +19,21 @@
     <input type="file" id="image-upload" class="image-upload" accept="image/*">
 
     <!-- Dev mode toggle button - bottom-left corner -->
-    <button class="round-btn" id="dev-mode-toggle" title="Toggle Developer Mode">
+    <button class="round-btn" id="dev-mode-toggle" title="Developer Tools">
         <span>⚙</span>
     </button>
 
     <!-- Dev mode controls panel - appears when dev mode is active -->
     <div class="dev-controls" id="dev-controls">
         <span class="dev-mode-label">Developer Tools</span>
-        <button id="load-image-btn">Load Image</button>
-        <button id="trace-btn">Start Tracing</button>
+        <button id="load-image-btn">Load New Image</button>
+        <button id="trace-btn">Trace a Polygon</button>
         <button id="finish-btn" style="display:none;">Finish Polygon</button>
         <button id="cancel-btn" style="display:none;">Cancel</button>
     </div>
 
     <!-- Reset button - bottom-right, left of zoom controls -->
-    <button class="round-btn" id="reset-btn" title="Reset View & Clear User Polygons">
+    <button class="round-btn" id="reset-btn" title="Reset Workspace">
         <span>↻</span>
     </button>
 
@@ -47,6 +47,7 @@
         </button>
     </div>
 
+    <!-- Dev Tools panel -->
     <div id="dev-modal">
         <div class="modal-content">
             <h2>
