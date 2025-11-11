@@ -1,6 +1,14 @@
-/* ============================================
-    JAVASCRIPT - Ready to move to map-viewer.js
-    ============================================ */
+// ========================================
+//   UTILITIES
+// ========================================
+
+/**
+ * For a textbox with a defined placeholder, if there is currently-entered text
+ * then return that. Otherwise, return the placeholder.
+ */
+function textbox_value_or_placeholder(el) {
+    return el.value || el.placeholder;
+}
 
 // ========================================
 // DATA INITIALIZATION
@@ -14,25 +22,25 @@ const sampleFeatures = [
         "id": "1000",
         "name": "Power Connector",
         "description": "Connects to power cable.",
-        "coordinates": [[84,23],[85,256],[132,256],[130,238],[220,237],[221,24]]
+        "coordinates": [[84, 23], [85, 256], [132, 256], [130, 238], [220, 237], [221, 24]]
     },
     {
         "id": "1001",
         "name": "USB Connector",
         "description": "Connects to USB cable.",
-        "coordinates": [[538,54],[533,162],[693,161],[690,52]]
+        "coordinates": [[538, 54], [533, 162], [693, 161], [690, 52]]
     },
     {
         "id": "1002",
         "name": "Reset Button",
         "description": "Button to reset device.",
-        "coordinates": [[704,229],[838,231],[840,105],[701,112]]
+        "coordinates": [[704, 229], [838, 231], [840, 105], [701, 112]]
     },
     {
         "id": "1003",
         "name": "CPU",
         "description": "Main processor.",
-        "coordinates": [[354,886],[461,997],[566,879],[455,780]]
+        "coordinates": [[354, 886], [461, 997], [566, 879], [455, 780]]
     }
 ];
 
@@ -156,34 +164,41 @@ function renderFeatures() {
 // ========================================
 
 /**
- * Resets zoom/pan to original fitted view
- * If user-generated polygons exist, shows confirmation modal first
+ * Closes the reset confirmation modal
  */
-function resetZoom() {
-    // Check if there are user-generated polygons to warn about
-    if (userGeneratedPolygons.length > 0) {
-        document.getElementById('reset-modal').classList.add('visible');
-    } else {
-        // No user polygons, just reset
-        performReset();
-    }
-}
-
-/**
- * Performs the actual reset operation
- * Clears user polygons and reloads the image
- */
-function performReset() {
-    userGeneratedPolygons = [];
-    loadImage(currentImage);
-    closeResetModal();
+function open_reset_confirmation_modal() {
+    document.getElementById('reset-modal').classList.add('visible');
 }
 
 /**
  * Closes the reset confirmation modal
  */
-function closeResetModal() {
+function close_reset_confirmation_modal() {
     document.getElementById('reset-modal').classList.remove('visible');
+}
+
+/**
+ * Resets zoom/pan to original fitted view
+ * If user-generated polygons exist, shows confirmation modal first
+ */
+function request_reset_view() {
+    if (userGeneratedPolygons.length == 0) {
+        // No user polygons, skip ahead to reset
+        perform_reset_view();
+    } else {
+        // Trigger pop-up requiring confirmation to proceed
+        open_reset_confirmation_modal();
+        // User must select Reset or Cancel, which will trigger actions separately
+    }
+}
+
+/**
+ * Performs the actual reset operation: clears user polygons and reloads the image
+ */
+function perform_reset_view() {
+    userGeneratedPolygons = [];
+    close_reset_confirmation_modal();
+    loadImage(currentImage);
 }
 
 /**
@@ -201,7 +216,7 @@ function handleKeyPress(event) {
 }
 
 // ========================================
-// DEVELOPER MODE CONTROLS
+//   DEVELOPER TOOLS
 // ========================================
 
 /**
@@ -224,6 +239,10 @@ function toggleDevMode() {
         cancelTracing(); // Clean up if tracing was in progress
     }
 }
+
+// ========================================
+//   POLYGON TRACING: ACTIONS
+// ========================================
 
 /**
  * Begins polygon tracing mode
@@ -304,7 +323,7 @@ function finishPolygon() {
     document.getElementById('polygon-name').value = '';
     document.getElementById('polygon-desc').value = '';
     // Generate initial JSON with default values
-    updateJSON();
+    update_json_modal_textbox();
 }
 
 /**
@@ -332,52 +351,87 @@ function cancelTracing() {
 }
 
 // ========================================
-// JSON GENERATION AND MODAL
+//   POLYGON TRACING: KEEP/DISCARD MODAL
 // ========================================
+
+/**
+ * Opens the user-generated-polygon keep-replace modal
+ */
+function open_polygon_keepreplace_modal() {
+    document.getElementById('dev-modal').classList.add('visible');
+}
+
+/**
+ * Closes the user-generated-polygon keep-replace modal
+ */
+function close_polygon_keepreplace_modal() {
+    document.getElementById('dev-modal').classList.remove('visible');
+}
+
+function json_string(id, name, description, coordinates) {
+    // Pack inputs into a JS object using a placeholder for coordinates and then
+    // convert to JSON string with 4-space indentation. Without using a placeholder
+    // placeholder the coordinates will inherit this indentation and occupy many lines.
+    const object = {
+        "id": id,
+        "name": name,
+        "description": description,
+        "coordinates": "COORDINATES"
+    }
+    const object_string = JSON.stringify(object, null, 4)
+
+    // Convert coordinates to a one-liner string with whitespace
+    const coordinate_string = JSON.stringify(coordinates).replace(/,/g, ', ')
+
+    // Replace the placeholder with actual coordinates and return
+    return object_string.replace(/"COORDINATES"/, coordinate_string)
+}
 
 /**
  * Generates JSON output from form inputs and traced coordinates
  * Formats with coordinates on single line to match example format
  */
-function updateJSON() {
+function update_json_modal_textbox() {
     // Get form values with fallback defaults
-    const id = document.getElementById('polygon-id').value || 'new-polygon';
-    const name = document.getElementById('polygon-name').value || 'New Feature';
-    const desc = document.getElementById('polygon-desc').value || 'Feature description';
-    
-    // Stringify coordinates array on single line (compact format)
-    const coordsString = JSON.stringify(tracingPoints);
-    
-    // Build formatted JSON string manually for precise formatting control
-    // Note: Template literal is NOT indented because whitespace is preserved in the output
-    // Starting at column 0 ensures clean JSON without extra leading spaces
-    const jsonString = 
-`{
-"id": "${id}",
-"name": "${name}",
-"description": "${desc}",
-"coordinates": ${coordsString}
-}`;
-    
-    document.getElementById('json-output').value = jsonString;
+    const id = textbox_value_or_placeholder(document.getElementById('polygon-id'));
+    const name = textbox_value_or_placeholder(document.getElementById('polygon-name'));
+    const description = textbox_value_or_placeholder(document.getElementById('polygon-desc'));
+    // Get coordinates from currently-traced polygon
+    const coordinates = tracingPoints;
+
+    // Convert this data to JSON and write it into the textbox
+    document.getElementById('json-output').value = json_string(id, name, description, coordinates);
 }
 
 /**
- * Copies JSON output to clipboard
- * Shows confirmation alert on success
+ * Performs a brief animation on the polygon JSON modal to indicate successful copy to clipboard
  */
-function copyJSON() {
-    const textarea = document.getElementById('json-output');
-    textarea.select();
-    document.execCommand('copy');
+function animate_json_modal_clipboard_success() {
+    // Locate icon and copy contents
+    const copy_icon = document.getElementById('copy-icon');
+    const original_content = copy_icon.textContent;
+    // Change contents to checkmark
+    copy_icon.textContent = '✓';
+    // Schedule this to revert 1 second later
+    delay_ms = 1000
+    setTimeout(() => { copy_icon.textContent = original_content; }, delay_ms);
+}
+
+/**
+ * Copies polygon JSON output to the user's clipboard. Shows animated visual when
+ * successful, or prints a console error on failure.
+ */
+async function copy_json_to_clipboard() {
+    // Select all text in the "JSON Output" textbox and copy to clipboard
+    const json_textbox = document.getElementById('json-output');
     
-    // Visual feedback
-    const copyIcon = document.getElementById('copy-icon');
-    const originalText = copyIcon.textContent;
-    copyIcon.textContent = '✓';
-    setTimeout(() => {
-        copyIcon.textContent = originalText;
-    }, 1000);
+    // Use Clipboard API to attempt copy-to-clipboard
+    try {
+        await navigator.clipboard.writeText(json_textbox.value)
+        animate_json_modal_clipboard_success()
+    } catch (err) {
+        console.error("Copying to user clipboard failed: ", err)
+    }
 }
 
 /**
@@ -385,27 +439,23 @@ function copyJSON() {
  * Closes modal and cleans up tracing state
  */
 function keepPolygon() {
-    // Get form values
-    const id = document.getElementById('polygon-id').value || 'new-polygon';
-    const name = document.getElementById('polygon-name').value || 'New Feature';
-    const desc = document.getElementById('polygon-desc').value || 'Feature description';
-    
-    // Create polygon object
+    // Create polygon object from current data
     const newPolygon = {
-        id: id,
-        name: name,
-        description: desc,
+        id: textbox_value_or_placeholder(document.getElementById('polygon-id')),
+        name: textbox_value_or_placeholder(document.getElementById('polygon-name')),
+        description: textbox_value_or_placeholder(document.getElementById('polygon-desc')),
         coordinates: [...tracingPoints]
     };
     
     // Add to user-generated polygons
     userGeneratedPolygons.push(newPolygon);
     
-    // Re-render to show the new polygon
+    // Re-render the map browser to show the new polygon
     renderFeatures();
     
     // Close modal and clean up
-    closeModal();
+    close_polygon_keepreplace_modal();
+    cancelTracing();
 }
 
 /**
@@ -413,15 +463,7 @@ function keepPolygon() {
  * Closes modal and cleans up tracing state without saving
  */
 function discardPolygon() {
-    closeModal();
-}
-
-/**
- * Closes the metadata modal and cleans up tracing state
- * Returns to dev mode ready state
- */
-function closeModal() {
-    document.getElementById('dev-modal').classList.remove('visible');
+    close_polygon_keepreplace_modal();
     cancelTracing();
 }
 
@@ -458,13 +500,8 @@ function triggerFileInput() {
  * Updates SVG dimensions and maintains current view
  */
 function handleResize() {
-    // Update viewport dimensions
-    width = window.innerWidth;
-    height = window.innerHeight;
-    
-    // Update SVG size
-    svg.attr('width', width)
-        .attr('height', height);
+    svg.attr('width', window.innerWidth)
+        .attr('height', window.innerHeight);
 }
 
 /**
@@ -473,7 +510,7 @@ function handleResize() {
 function zoomIn() {
     svg.transition()
         .duration(300)
-        .call(zoom.scaleBy, 1.5);
+        .call(zoom.scaleBy, 5/4);
 }
 
 /**
@@ -482,7 +519,7 @@ function zoomIn() {
 function zoomOut() {
     svg.transition()
         .duration(300)
-        .call(zoom.scaleBy, 0.67);
+        .call(zoom.scaleBy, 4/5);
 }
 
 // ========================================
@@ -506,7 +543,7 @@ function initializeApp() {
 
     // Configure zoom behavior with scale limits
     zoom = d3.zoom()
-        .scaleExtent([0.5, 10]) // Min 50% zoom out, max 10x zoom in
+        .scaleExtent([0.5, 10]) // Min-max zoom scales
         .on('zoom', (event) => {
             // Apply zoom/pan transformation to the group containing image and polygons
             g.attr('transform', event.transform);
@@ -518,26 +555,29 @@ function initializeApp() {
     // Reference to tooltip element for showing polygon metadata
     tooltip = d3.select('#tooltip');
 
-    // Attach event listeners to buttons using addEventListener (modern approach)
-    document.getElementById('reset-btn').addEventListener('click', resetZoom);
+    // Attach event listeners to interactive elements
+    //   Always displayed
+    document.getElementById('dev-mode-toggle').addEventListener('click', toggleDevMode);
+    document.getElementById('reset-btn').addEventListener('click', request_reset_view);
     document.getElementById('zoom-in-btn').addEventListener('click', zoomIn);
     document.getElementById('zoom-out-btn').addEventListener('click', zoomOut);
-    document.getElementById('dev-mode-toggle').addEventListener('click', toggleDevMode);
+    //   Developer Tools
+    document.getElementById('load-image-btn').addEventListener('click', triggerFileInput);
     document.getElementById('trace-btn').addEventListener('click', startTracing);
     document.getElementById('finish-btn').addEventListener('click', finishPolygon);
     document.getElementById('cancel-btn').addEventListener('click', cancelTracing);
-    document.getElementById('copy-icon').addEventListener('click', copyJSON);
+    //   Modal: Polygon Keep/Replace
+    document.getElementById('copy-icon').addEventListener('click', copy_json_to_clipboard);
+    document.getElementById('polygon-id').addEventListener('input', update_json_modal_textbox);
+    document.getElementById('polygon-name').addEventListener('input', update_json_modal_textbox);
+    document.getElementById('polygon-desc').addEventListener('input', update_json_modal_textbox);
     document.getElementById('keep-polygon-btn').addEventListener('click', keepPolygon);
     document.getElementById('discard-polygon-btn').addEventListener('click', discardPolygon);
-    document.getElementById('confirm-reset-btn').addEventListener('click', performReset);
-    document.getElementById('cancel-reset-btn').addEventListener('click', closeResetModal);
-    document.getElementById('load-image-btn').addEventListener('click', triggerFileInput);
+    //   Modal: Confirm Reset
+    document.getElementById('confirm-reset-btn').addEventListener('click', perform_reset_view);
+    document.getElementById('cancel-reset-btn').addEventListener('click', close_reset_confirmation_modal);
+    //   Background workers
     document.getElementById('image-upload').addEventListener('change', handleImageUpload);
-
-    // Attach input event listeners to update JSON in real-time as user types
-    document.getElementById('polygon-id').addEventListener('input', updateJSON);
-    document.getElementById('polygon-name').addEventListener('input', updateJSON);
-    document.getElementById('polygon-desc').addEventListener('input', updateJSON);
 
     // Handle window resize to keep SVG properly sized
     window.addEventListener('resize', handleResize);
