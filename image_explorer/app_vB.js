@@ -14,40 +14,51 @@ function textbox_value_or_placeholder(el) {
 // DATA INITIALIZATION
 // ========================================
 
-const sampleImageURL = 'assets/map_upper.png';
-
-// Example polygon features - coordinates are in pixel space relative to image
-const sampleFeatures = [
+const MAP_POLYGONS = [
     {
         "id": "1000",
+        "side": "upper",
         "name": "Power Connector",
         "description": "Connects to power cable.",
         "coordinates": [[84, 23], [85, 256], [132, 256], [130, 238], [220, 237], [221, 24]]
     },
     {
         "id": "1001",
+        "side": "upper",
         "name": "USB Connector",
         "description": "Connects to USB cable.",
         "coordinates": [[538, 54], [533, 162], [693, 161], [690, 52]]
     },
     {
         "id": "1002",
+        "side": "upper",
         "name": "Reset Button",
         "description": "Button to reset device.",
         "coordinates": [[704, 229], [838, 231], [840, 105], [701, 112]]
     },
     {
         "id": "1003",
+        "side": "upper",
         "name": "CPU",
         "description": "Main processor.",
         "coordinates": [[354, 886], [461, 997], [566, 879], [455, 780]]
     }
 ];
 
+class MapState {
+    constructor(image_url, polygons = []) {
+        this.image_url = image_url;
+        this.polygons = polygons;
+        this.user_polygons = [];
+    }
+}
+
+// Default Upper and Lower Views
+let MAP_UPPER = new MapState('assets/map_upper.png', MAP_POLYGONS.filter(f => f.side == "upper"))
+let MAP_LOWER = new MapState('assets/map_lower.png', MAP_POLYGONS.filter(f => f.side == "lower"))
+
 // Application state variables
-let features = [...sampleFeatures]; // Current features array (cloned to avoid mutation)
-let userGeneratedPolygons = []; // Polygons created by user in dev mode (session only)
-let currentImage = sampleImageURL; // Currently loaded image URL
+let current_map_state = MAP_UPPER;
 let devMode = false; // Whether developer mode is active
 let tracing = false; // Whether user is currently tracing a polygon
 let tracingPoints = []; // Array of [x, y] coordinates for polygon being traced
@@ -70,9 +81,8 @@ let svg, g, zoom, tooltip;
 /**
  * Loads an image and sets up the initial view
  * Calculates appropriate zoom level to fit image in viewport
- * @param {string} url - Image URL or data URL to load
  */
-function loadImage(url) {
+function loadImage(map_state) {
     // Clear any existing content (image and polygons)
     g.selectAll('*').remove();
     
@@ -93,7 +103,7 @@ function loadImage(url) {
         // Add image element to SVG at native resolution
         // D3 zoom will handle the scaling
         g.append('image')
-            .attr('href', url)
+            .attr('href', map_state.image_url)
             .attr('width', imgWidth)
             .attr('height', imgHeight);
 
@@ -109,9 +119,9 @@ function loadImage(url) {
         }, 10);
     };
     img.onerror = function() {
-        console.error('Failed to load image:', url);
+        console.error('Failed to load image:', map_state.image_url);
     };
-    img.src = url;
+    img.src = map_state.image_url;
 }
 
 /**
@@ -125,8 +135,8 @@ function renderFeatures() {
     
     // Mark user-generated polygons with a flag for styling
     const allFeatures = [
-        ...features.map(f => ({...f, isUserGenerated: false})),
-        ...userGeneratedPolygons.map(f => ({...f, isUserGenerated: true}))
+        ...current_map_state.polygons.map(f => ({...f, isUserGenerated: false})),
+        ...current_map_state.user_polygons.map(f => ({...f, isUserGenerated: true}))
     ];
     
     // Create polygon elements from features data using D3 data binding
@@ -182,7 +192,7 @@ function close_reset_confirmation_modal() {
  * If user-generated polygons exist, shows confirmation modal first
  */
 function request_reset_view() {
-    if (userGeneratedPolygons.length == 0) {
+    if (current_map_state.user_polygons.length == 0) {
         // No user polygons, skip ahead to reset
         perform_reset_view();
     } else {
@@ -196,9 +206,9 @@ function request_reset_view() {
  * Performs the actual reset operation: clears user polygons and reloads the image
  */
 function perform_reset_view() {
-    userGeneratedPolygons = [];
+    current_map_state.user_polygons = [];
     close_reset_confirmation_modal();
-    loadImage(currentImage);
+    loadImage(current_map_state);
 }
 
 /**
@@ -213,6 +223,28 @@ function handleKeyPress(event) {
     } else if (event.key === 'Escape' && tracing) {
         cancelTracing();
     }
+}
+
+// ========================================
+//   UPPER/LOWER VIEWS
+// ========================================
+
+function switch_to_lower_view() {
+    // Set button states
+    document.getElementById('upper-view-btn').classList.remove('active');
+    document.getElementById('lower-view-btn').classList.add('active');
+
+    current_map_state = MAP_LOWER;
+    loadImage(current_map_state);
+}
+
+function switch_to_upper_view() {
+    // Set button states
+    document.getElementById('upper-view-btn').classList.add('active');
+    document.getElementById('lower-view-btn').classList.remove('active');
+    
+    current_map_state = MAP_UPPER;
+    loadImage(current_map_state);
 }
 
 // ========================================
@@ -448,7 +480,7 @@ function keepPolygon() {
     };
     
     // Add to user-generated polygons
-    userGeneratedPolygons.push(newPolygon);
+    current_map_state.user_polygons.push(newPolygon);
     
     // Re-render the map browser to show the new polygon
     renderFeatures();
@@ -480,12 +512,13 @@ function handleImageUpload(e) {
     if (file) {
         const reader = new FileReader();
         reader.onload = function(event) {
-            // Store data URL for future resets
-            currentImage = event.target.result;
-            // Clear all polygons since they won't match new image dimensions/content
-            features = [];
-            userGeneratedPolygons = [];
-            loadImage(currentImage);
+            // Set view button states to inactive
+            document.getElementById('upper-view-btn').classList.remove('active');
+            document.getElementById('lower-view-btn').classList.remove('active');
+
+            // Generate new MapState with this uploaded image
+            current_map_state = new MapState(event.target.result)
+            loadImage(current_map_state);
         };
         // Convert file to data URL
         reader.readAsDataURL(file);
@@ -574,6 +607,8 @@ function initializeApp() {
     document.getElementById('reset-btn').addEventListener('click', request_reset_view);
     document.getElementById('zoom-in-btn').addEventListener('click', zoomIn);
     document.getElementById('zoom-out-btn').addEventListener('click', zoomOut);
+    document.getElementById('upper-view-btn').addEventListener('click', switch_to_upper_view);
+    document.getElementById('lower-view-btn').addEventListener('click', switch_to_lower_view);
     //   Developer Tools
     document.getElementById('load-image-btn').addEventListener('click', triggerFileInput);
     document.getElementById('trace-btn').addEventListener('click', startTracing);
@@ -596,7 +631,7 @@ function initializeApp() {
     window.addEventListener('resize', handleResize);
 
     // Load sample image and features on initialization
-    loadImage(currentImage);
+    loadImage(current_map_state);
 }
 
 // ========================================
