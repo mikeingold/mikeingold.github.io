@@ -201,7 +201,7 @@ svg {
 /* View control buttons - stacked vertically above zoom controls */
 .view-controls {
     position: absolute;
-    bottom: calc(4 * var(--btn-radius) + 4 * var(--ui-edge-pad));
+    bottom: calc(4 * var(--btn-radius) + 5 * var(--ui-edge-pad));
     right: var(--ui-edge-pad);
     display: flex;
     flex-direction: column;
