@@ -28,9 +28,9 @@ let MAP_LOWER = new MapState('assets/map_lower.png', MAP_POLYGONS.filter(f => f.
 
 // Application state variables
 let current_map_state = MAP_UPPER;
-let devMode = false; // Whether developer mode is active
+let dev_tools_enabled = false; // Whether developer mode is active
 let tracing = false; // Whether user is currently tracing a polygon
-let tracingPoints = []; // Array of [x, y] coordinates for polygon being traced
+let current_tracing_points = []; // Array of [x, y] coordinates for polygon being traced
 
 // ========================================
 // D3.JS SETUP
@@ -41,7 +41,7 @@ let width = window.innerWidth;
 let height = window.innerHeight;
 
 // D3 references - will be initialized after DOM loads
-let svg, g, zoom, tooltip;
+let container, svg, g, zoom, tooltip, info;
 
 // ========================================
 // IMAGE LOADING AND RENDERING
@@ -51,7 +51,7 @@ let svg, g, zoom, tooltip;
  * Loads an image and sets up the initial view
  * Calculates appropriate zoom level to fit image in viewport
  */
-function loadImage(map_state) {
+function load_image(map_state) {
     // Clear any existing content (image and polygons)
     g.selectAll('*').remove();
     
@@ -84,7 +84,7 @@ function loadImage(map_state) {
         // Render polygon overlays on top of image after a short delay
         // This ensures the transform is applied before rendering polygons
         setTimeout(() => {
-            renderFeatures();
+            render_polygons();
         }, 10);
     };
     img.onerror = function() {
@@ -98,7 +98,7 @@ function loadImage(map_state) {
  * Includes both sample features and user-generated polygons
  * Attaches hover events for tooltip display
  */
-function renderFeatures() {
+function render_polygons() {
     // Remove any existing polygons to avoid duplicates
     g.selectAll('.polygon-area').remove();
     
@@ -177,7 +177,7 @@ function request_reset_view() {
 function perform_reset_view() {
     current_map_state.user_polygons = [];
     close_reset_confirmation_modal();
-    loadImage(current_map_state);
+    load_image(current_map_state);
 }
 
 /**
@@ -188,9 +188,9 @@ function perform_reset_view() {
  */
 function handleKeyPress(event) {
     if (event.key === 'Enter' && tracing) {
-        finishPolygon();
+        complete_polygon();
     } else if (event.key === 'Escape' && tracing) {
-        cancelTracing();
+        cancel_tracing();
     }
 }
 
@@ -204,7 +204,7 @@ function switch_to_lower_view() {
     document.getElementById('lower-view-btn').classList.add('active');
 
     current_map_state = MAP_LOWER;
-    loadImage(current_map_state);
+    load_image(current_map_state);
 }
 
 function switch_to_upper_view() {
@@ -213,7 +213,7 @@ function switch_to_upper_view() {
     document.getElementById('lower-view-btn').classList.remove('active');
     
     current_map_state = MAP_UPPER;
-    loadImage(current_map_state);
+    load_image(current_map_state);
 }
 
 // ========================================
@@ -224,20 +224,20 @@ function switch_to_upper_view() {
  * Toggles developer mode on/off
  * Shows/hides dev controls panel and updates toggle button appearance
  */
-function toggleDevMode() {
-    devMode = !devMode;
-    const toggleBtn = document.getElementById('dev-mode-toggle');
-    const devControls = document.getElementById('dev-controls');
+function toggle_dev_tools() {
+    dev_tools_enabled = !dev_tools_enabled;
+    const toggle_button = document.getElementById('dev-mode-toggle');
+    const dev_controls = document.getElementById('dev-controls');
     
-    if (devMode) {
+    if (dev_tools_enabled) {
         // Enable dev mode - show controls panel and change button color
-        toggleBtn.classList.add('active');
-        devControls.classList.add('visible');
+        toggle_button.classList.add('active');
+        dev_controls.classList.add('visible');
     } else {
         // Disable dev mode - hide controls and clean up
-        toggleBtn.classList.remove('active');
-        devControls.classList.remove('visible');
-        cancelTracing(); // Clean up if tracing was in progress
+        toggle_button.classList.remove('active');
+        dev_controls.classList.remove('visible');
+        cancel_tracing(); // Clean up if tracing was in progress
     }
 }
 
@@ -249,9 +249,9 @@ function toggleDevMode() {
  * Begins polygon tracing mode
  * Changes cursor to crosshair and enables click handler for vertex placement
  */
-function startTracing() {
+function begin_tracing() {
     tracing = true;
-    tracingPoints = [];
+    current_tracing_points = [];
     
     // Update UI state - change cursor and button visibility
     document.getElementById('container').classList.add('tracing');
@@ -263,7 +263,7 @@ function startTracing() {
     g.selectAll('.drawing-polygon, .drawing-point').remove();
     
     // Enable click handling for placing vertices
-    svg.on('click', handleClick);
+    svg.on('click', handle_tracing_click);
     // Enable keyboard shortcuts for finishing/canceling
     document.addEventListener('keydown', handleKeyPress);
     // Hide any visible tooltips to avoid confusion
@@ -275,13 +275,13 @@ function startTracing() {
  * Updates visual feedback by drawing points and connecting lines
  * @param {MouseEvent} event - The click event
  */
-function handleClick(event) {
+function handle_tracing_click(event) {
     if (!tracing) return;
     
     // Get click coordinates in image space (accounts for current zoom/pan transform)
     const [x, y] = d3.pointer(event, g.node());
     // Round coordinates to avoid sub-pixel precision issues
-    tracingPoints.push([Math.round(x), Math.round(y)]);
+    current_tracing_points.push([Math.round(x), Math.round(y)]);
     
     // Draw a circle at the clicked point to mark the vertex
     g.append('circle')
@@ -291,12 +291,12 @@ function handleClick(event) {
         .attr('r', 5);
     
     // After 2+ points, show the polygon shape preview
-    if (tracingPoints.length > 1) {
+    if (current_tracing_points.length > 1) {
         // Remove old polygon preview and redraw with new point
         g.selectAll('.drawing-polygon').remove();
         g.append('polygon')
             .attr('class', 'drawing-polygon')
-            .attr('points', tracingPoints.map(c => c.join(',')).join(' '));
+            .attr('points', current_tracing_points.map(c => c.join(',')).join(' '));
     }
 }
 
@@ -304,9 +304,9 @@ function handleClick(event) {
  * Completes the current polygon and shows metadata input modal
  * Validates that polygon has at least 3 points
  */
-function finishPolygon() {
+function complete_polygon() {
     // Polygons need at least 3 vertices to be valid
-    if (tracingPoints.length < 3) {
+    if (current_tracing_points.length < 3) {
         alert('Please trace at least 3 points to create a polygon');
         return;
     }
@@ -331,9 +331,9 @@ function finishPolygon() {
  * Cancels tracing and cleans up visual artifacts
  * Returns UI to dev mode ready state
  */
-function cancelTracing() {
+function cancel_tracing() {
     tracing = false;
-    tracingPoints = [];
+    current_tracing_points = [];
     // Remove click handler
     svg.on('click', null);
     // Remove keyboard event listener
@@ -398,7 +398,7 @@ function update_json_modal_textbox() {
     const name = textbox_value_or_placeholder(document.getElementById('polygon-name'));
     const description = textbox_value_or_placeholder(document.getElementById('polygon-desc'));
     // Get coordinates from currently-traced polygon
-    const coordinates = tracingPoints;
+    const coordinates = current_tracing_points;
 
     // Convert this data to JSON and write it into the textbox
     document.getElementById('json-output').value = json_string(id, name, description, coordinates);
@@ -439,33 +439,33 @@ async function copy_json_to_clipboard() {
  * Keeps the current polygon, adds it to user-generated polygons
  * Closes modal and cleans up tracing state
  */
-function keepPolygon() {
+function keep_traced_polygon() {
     // Create polygon object from current data
     const newPolygon = {
         id: textbox_value_or_placeholder(document.getElementById('polygon-id')),
         name: textbox_value_or_placeholder(document.getElementById('polygon-name')),
         description: textbox_value_or_placeholder(document.getElementById('polygon-desc')),
-        coordinates: [...tracingPoints]
+        coordinates: [...current_tracing_points]
     };
     
     // Add to user-generated polygons
     current_map_state.user_polygons.push(newPolygon);
     
     // Re-render the map browser to show the new polygon
-    renderFeatures();
+    render_polygons();
     
     // Close modal and clean up
     close_polygon_keepreplace_modal();
-    cancelTracing();
+    cancel_tracing();
 }
 
 /**
  * Discards the current polygon
  * Closes modal and cleans up tracing state without saving
  */
-function discardPolygon() {
+function discard_traced_polygon() {
     close_polygon_keepreplace_modal();
-    cancelTracing();
+    cancel_tracing();
 }
 
 // ========================================
@@ -476,7 +476,7 @@ function discardPolygon() {
  * Handles custom image upload from file input
  * Clears all polygons (features and user-generated) since coordinates are image-specific
  */
-function handleImageUpload(e) {
+function handle_user_image_upload(e) {
     const file = e.target.files[0];
     if (file) {
         const reader = new FileReader();
@@ -487,7 +487,7 @@ function handleImageUpload(e) {
 
             // Generate new MapState with this uploaded image
             current_map_state = new MapState(event.target.result)
-            loadImage(current_map_state);
+            load_image(current_map_state);
         };
         // Convert file to data URL
         reader.readAsDataURL(file);
@@ -497,7 +497,7 @@ function handleImageUpload(e) {
 /**
  * Triggers the hidden file input when the styled button is clicked
  */
-function triggerFileInput() {
+function trigger_image_upload() {
     document.getElementById('image-upload').click();
 }
 
@@ -505,35 +505,25 @@ function triggerFileInput() {
 //   MAP NAVIGATION
 // ========================================
 
-/**
- * Handles window resize events
- * Updates SVG dimensions and maintains current view
- */
-function handleResize() {
+function handle_window_resize() {
     svg.attr('width', window.innerWidth)
         .attr('height', window.innerHeight);
 }
 
-/**
- * Zooms in by a fixed factor
- */
-function zoomIn() {
+function zoom_in() {
     svg.transition()
         .duration(300)
         .call(zoom.scaleBy, 5/4);
 }
 
-/**
- * Zooms out by a fixed factor
- */
-function zoomOut() {
+function zoom_out() {
     svg.transition()
         .duration(300)
         .call(zoom.scaleBy, 4/5);
 }
 
 // ========================================
-// EVENT LISTENER SETUP
+//             INITIALIZATION
 // ========================================
 
 /**
@@ -556,10 +546,7 @@ function initializeApp() {
         g.attr('transform', event.transform)
     }
 
-    // Configure zoom behavior with scale limits
-    const container = d3.select('#container');
-    zoom = d3.zoom()
-        .scaleExtent([0.5, 10]) // Min-max zoom scales
+    // Configure zoom behavior
         .on('start', () => container.classed('grabbing', true))
         .on('zoom', zoomed)
         .on('end',   () => container.classed('grabbing', false))
@@ -572,41 +559,37 @@ function initializeApp() {
 
     // Attach event listeners to interactive elements
     //   Always displayed
-    document.getElementById('dev-mode-toggle').addEventListener('click', toggleDevMode);
+    document.getElementById('dev-mode-toggle').addEventListener('click', toggle_dev_tools);
     document.getElementById('reset-btn').addEventListener('click', request_reset_view);
-    document.getElementById('zoom-in-btn').addEventListener('click', zoomIn);
-    document.getElementById('zoom-out-btn').addEventListener('click', zoomOut);
+    document.getElementById('zoom-in-btn').addEventListener('click', zoom_in);
+    document.getElementById('zoom-out-btn').addEventListener('click', zoom_out);
     document.getElementById('upper-view-btn').addEventListener('click', switch_to_upper_view);
     document.getElementById('lower-view-btn').addEventListener('click', switch_to_lower_view);
     //   Developer Tools
-    document.getElementById('load-image-btn').addEventListener('click', triggerFileInput);
-    document.getElementById('trace-btn').addEventListener('click', startTracing);
-    document.getElementById('finish-btn').addEventListener('click', finishPolygon);
-    document.getElementById('cancel-btn').addEventListener('click', cancelTracing);
+    document.getElementById('load-image-btn').addEventListener('click', trigger_image_upload);
+    document.getElementById('trace-btn').addEventListener('click', begin_tracing);
+    document.getElementById('finish-btn').addEventListener('click', complete_polygon);
+    document.getElementById('cancel-btn').addEventListener('click', cancel_tracing);
     //   Modal: Polygon Keep/Replace
     document.getElementById('copy-icon').addEventListener('click', copy_json_to_clipboard);
     document.getElementById('polygon-id').addEventListener('input', update_json_modal_textbox);
     document.getElementById('polygon-name').addEventListener('input', update_json_modal_textbox);
     document.getElementById('polygon-desc').addEventListener('input', update_json_modal_textbox);
-    document.getElementById('keep-polygon-btn').addEventListener('click', keepPolygon);
-    document.getElementById('discard-polygon-btn').addEventListener('click', discardPolygon);
+    document.getElementById('keep-polygon-btn').addEventListener('click', keep_traced_polygon);
+    document.getElementById('discard-polygon-btn').addEventListener('click', discard_traced_polygon);
     //   Modal: Confirm Reset
     document.getElementById('confirm-reset-btn').addEventListener('click', perform_reset_view);
     document.getElementById('cancel-reset-btn').addEventListener('click', close_reset_confirmation_modal);
     //   Background workers
-    document.getElementById('image-upload').addEventListener('change', handleImageUpload);
+    document.getElementById('image-upload').addEventListener('change', handle_user_image_upload);
 
     // Handle window resize to keep SVG properly sized
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', handle_window_resize);
 
     // Load sample image and features on initialization
-    loadImage(current_map_state);
+    load_image(current_map_state);
 }
-
-// ========================================
-// INITIALIZATION
-// ========================================
 
 // Wait for DOM to be fully loaded before initializing
 // This ensures all elements are available when we try to access them
-document.addEventListener('DOMContentLoaded', initializeApp);
+document.addEventListener('DOMContentLoaded', initialize);
