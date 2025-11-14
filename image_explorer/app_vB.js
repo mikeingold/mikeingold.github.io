@@ -530,29 +530,28 @@ function zoom_out() {
  * Initializes the application after DOM is fully loaded
  * Sets up all event listeners and loads the initial image
  */
-function initializeApp() {
+function initialize() {
     // Initialize D3 references
-    svg = d3.select('#container')
-        .append('svg')
-        .attr('width', width)
-        .attr('height', height);
+    container = d3.select('#container');
+    svg = d3.select('#map-viewer'); // the SVG block inside the div#container
+    g = svg.append('g');  // SVG group element
+    zoom = d3.zoom();
+    info_panel = document.getElementById('info-panel');
 
-    // Create a group element for zoom/pan transformations
-    // This allows us to transform the entire image and polygons together
-    g = svg.append('g');
-
-    // Apply zoom/pan transformation to the group containing image and polygons
-    function zoomed(event) {
-        g.attr('transform', event.transform)
-    }
+    // Set initial SVG size to initial window size
+    svg.attr('width', width).attr('height', height);
 
     // Configure zoom behavior
+    zoom.scaleExtent([0.5, 10]) // Min-max zoom levels
         .on('start', () => container.classed('grabbing', true))
-        .on('zoom', zoomed)
+        .on('zoom', (event) => g.attr('transform', event.transform))  // Apply transform to SVG group while panning
         .on('end',   () => container.classed('grabbing', false))
 
     // Apply zoom behavior to SVG element
     svg.call(zoom);
+
+    // Close Info Panel when bare map is clicked
+    //svg.on('click', close_info_panel); TODO
 
     // Reference to tooltip element for showing polygon metadata
     tooltip = d3.select('#tooltip');

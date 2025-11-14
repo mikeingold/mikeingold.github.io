@@ -277,7 +277,24 @@ svg {
                      Modals
     ============================================ */
 
-#dev-modal,
+/* Polygon data modal */
+#dev-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+}
+#dev-modal.visible {
+    display: flex;
+}
+
+/* Reset Map modal */
 #reset-modal {
     display: none;
     position: fixed;
@@ -290,7 +307,6 @@ svg {
     align-items: center;
     justify-content: center;
 }
-#dev-modal.visible,
 #reset-modal.visible {
     display: flex;
 }
