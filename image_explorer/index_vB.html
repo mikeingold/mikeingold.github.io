@@ -63,31 +63,29 @@
         </button>
     </div>
 
-    <!-- Dev Tools panel -->
-    <div id="dev-modal">
-        <div class="modal-content">
-            <h2>
-                <span>New Polygon Data</span>
-                <span class="copy-icon" id="copy-icon" title="Copy JSON">📋</span>
-            </h2>
-            <label>ID</label>
-            <input type="text" id="polygon-id" placeholder="new-id">
-            <label>Name</label>
-            <input type="text" id="polygon-name" placeholder="New Feature Name">
-            <label>Description</label>
-            <input type="text" id="polygon-desc" placeholder="New feature description">
-            <label>JSON Output</label>
-            <textarea id="json-output" readonly></textarea>
-            <div class="modal-buttons">
-                <button class="success" id="keep-polygon-btn">Keep</button>
-                <button class="danger" id="discard-polygon-btn">Discard</button>
-            </div>
+    <!-- Polygon Info Panel -->
+    <div id="polygon-info-modal">
+        <h2>
+            <span>Feature Info</span>
+            <span class="copy-icon" id="copy-icon" title="Copy JSON">📋</span>
+        </h2>
+        <label>ID</label>
+        <input type="text" id="polygon-id" placeholder="new-id">
+        <label>Name</label>
+        <input type="text" id="polygon-name" placeholder="New Feature Name">
+        <label>Description</label>
+        <input type="text" id="polygon-desc" placeholder="New feature description">
+        <label>JSON Data</label>
+        <textarea id="json-output" readonly></textarea>
+        <div class="modal-buttons">
+            <button class="success" id="keep-polygon-btn">Keep</button>
+            <button class="danger" id="discard-polygon-btn">Discard</button>
         </div>
     </div>
 
     <!-- Reset confirmation modal -->
     <div id="reset-modal">
-        <div class="modal-content">
+        <div id="reset-modal-content">
             <h2>Confirm Reset</h2>
             <p style="margin-bottom: 20px; line-height: 1.6;">This will reset the view and delete all user-generated polygons. This action cannot be undone.</p>
             <div class="modal-buttons">

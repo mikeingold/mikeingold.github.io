@@ -316,7 +316,7 @@ function complete_polygon() {
     svg.on('click', null);
     
     // Show modal for metadata input
-    const modal = document.getElementById('dev-modal');
+    const modal = document.getElementById('polygon-info-modal');
     modal.classList.add('visible');
     
     // Reset form fields to defaults
@@ -359,14 +359,14 @@ function cancel_tracing() {
  * Opens the user-generated-polygon keep-replace modal
  */
 function open_polygon_keepreplace_modal() {
-    document.getElementById('dev-modal').classList.add('visible');
+    document.getElementById('polygon-info-modal').classList.add('visible');
 }
 
 /**
  * Closes the user-generated-polygon keep-replace modal
  */
 function close_polygon_keepreplace_modal() {
-    document.getElementById('dev-modal').classList.remove('visible');
+    document.getElementById('polygon-info-modal').classList.remove('visible');
 }
 
 function json_string(id, name, description, coordinates) {
