@@ -2,6 +2,12 @@
 //   UTILITIES
 // ========================================
 
+function coordinate_string(coords) {
+    // [ [x1, y1], [x2, y2] ] -> [ "x1,y1", "x2,y2" ] -> "x1,y1 x2,y2"
+    return coords.map(c => c.join(',')).join(' ')
+}
+
+
 /**
  * For a textbox with a defined placeholder, if there is currently-entered text
  * then return that. Otherwise, return the placeholder.
@@ -101,41 +107,52 @@ function load_image(map_state) {
 function render_polygons() {
     // Remove any existing polygons to avoid duplicates
     g.selectAll('.polygon-area').remove();
-    
+
+    // Event handlers to be assigned later in this function
+    const g_mouseenter = (event, d) => {
+        if (tracing) return; // no tooltips while tracing
+        d3.select('#tooltip-title').text(d.name);
+        d3.select('#tooltip-description').text(d.description);
+        tooltip.classed('visible', true);
+    };
+    const g_mousemove = (event) => {
+        if (tracing) return; // no tooltips while tracing
+        position_x = String(event.pageX + 15) + 'px'
+        position_y = String(event.pageY + 15) + 'px'
+        tooltip
+            .style('left', position_x)
+            .style('top', position_y);
+    };
+    const g_mouseleave = () => {
+        // Hide tooltip when mouse leaves polygon
+        tooltip.classed('visible', false);
+    }
+    const g_click = (event, d) => {
+        if (tracing) return; // no tooltips while tracing
+        if (d.isUserGenerated) {
+            alert(`Clicked ${d.name} (Traced)`)
+        } else {
+            alert(`Clicked ${d.name}`)
+        }
+    }
+
     // Mark user-generated polygons with a flag for styling
     const allFeatures = [
         ...current_map_state.polygons.map(f => ({...f, isUserGenerated: false})),
         ...current_map_state.user_polygons.map(f => ({...f, isUserGenerated: true}))
     ];
-    
-    // Create polygon elements from features data using D3 data binding
+
+    // Draw SVG polygonsCreate polygon elements from features data using D3 data binding
     g.selectAll('.polygon-area')
         .data(allFeatures)
         .enter()
         .append('polygon')
-        .attr('class', d => d.isUserGenerated ? 'polygon-area user-generated' : 'polygon-area')
-        // Convert coordinate arrays to SVG points format: "x1,y1 x2,y2 x3,y3"
-        .attr('points', d => d.coordinates.map(c => c.join(',')).join(' '))
-        .on('mouseenter', function(event, d) {
-            // Don't show tooltips while tracing to avoid interference with polygon drawing
-            if (!tracing) {
-                d3.select('#tooltip-title').text(d.name);
-                d3.select('#tooltip-description').text(d.description);
-                tooltip.classed('visible', true);
-            }
-        })
-        .on('mousemove', function(event) {
-            // Update tooltip position to follow cursor with slight offset
-            if (!tracing) {
-                tooltip
-                    .style('left', (event.pageX + 15) + 'px')
-                    .style('top', (event.pageY + 15) + 'px');
-            }
-        })
-        .on('mouseleave', function() {
-            // Hide tooltip when mouse leaves polygon
-            tooltip.classed('visible', false);
-        });
+        .attr('class', d => d.isUserGenerated ? 'polygon-area user-generated' : 'polygon-area')  // sets css class based on type flag
+        .attr('points', d => coordinate_string(d.coordinates))
+        .on('mouseenter', g_mouseenter)
+        .on('mousemove', g_mousemove)
+        .on('mouseleave', g_mouseleave)
+        .on('click', g_click);
 }
 
 // ========================================
