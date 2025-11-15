@@ -7,6 +7,25 @@ function coordinate_string(coords) {
     return coords.map(c => c.join(',')).join(' ')
 }
 
+function json_string(id, name, description, coordinates) {
+    // Pack inputs into a JS object using a placeholder for coordinates and then
+    // convert to JSON string with 4-space indentation. Without using a placeholder
+    // placeholder the coordinates will inherit this indentation and occupy many lines.
+    const object = {
+        "id": id,
+        "side": "?",
+        "name": name,
+        "description": description,
+        "coordinates": "COORDINATES"
+    }
+    const object_string = JSON.stringify(object, null, 4)
+
+    // Convert coordinates to a one-liner string with whitespace
+    const coordinate_string = JSON.stringify(coordinates).replace(/,/g, ', ')
+
+    // Replace the placeholder with actual coordinates and return
+    return object_string.replace(/"COORDINATES"/, coordinate_string)
+}
 
 /**
  * For a textbox with a defined placeholder, if there is currently-entered text
@@ -156,7 +175,7 @@ function render_polygons() {
 }
 
 // ========================================
-// VIEW CONTROLS
+//   RESET MAP
 // ========================================
 
 /**
@@ -203,7 +222,7 @@ function perform_reset_view() {
  * Escape: Cancel tracing and discard current polygon
  * @param {KeyboardEvent} event - The keyboard event
  */
-function handleKeyPress(event) {
+function handle_keypress_while_tracing(event) {
     if (event.key === 'Enter' && tracing) {
         complete_polygon();
     } else if (event.key === 'Escape' && tracing) {
@@ -263,6 +282,35 @@ function toggle_dev_tools() {
 // ========================================
 
 /**
+ * Handles clicks during tracing to add polygon vertices
+ * Updates visual feedback by drawing points and connecting lines
+ * @param {MouseEvent} event - The click event
+ */
+function handle_tracing_click(event) {
+    if (!tracing) return;
+    
+    // Get click coordinates (in the mapped space), save them to traced polygon
+    const [x, y] = d3.pointer(event, g.node());
+    current_tracing_points.push([Math.round(x), Math.round(y)]); // avoid sub-pixel issues
+    
+    // Draw a circle at the clicked point to mark the vertex
+    g.append('circle')
+        .attr('class', 'drawing-point')
+        .attr('cx', x)
+        .attr('cy', y)
+        .attr('r', 5);
+    
+    // After 2+ points, show the polygon shape preview
+    if (current_tracing_points.length > 1) {
+        // Remove old polygon preview and redraw with new point
+        g.selectAll('.drawing-polygon').remove();
+        g.append('polygon')
+            .attr('class', 'drawing-polygon')
+            .attr('points', coordinate_string(current_tracing_points));
+    }
+}
+
+/**
  * Begins polygon tracing mode
  * Changes cursor to crosshair and enables click handler for vertex placement
  */
@@ -282,39 +330,9 @@ function begin_tracing() {
     // Enable click handling for placing vertices
     svg.on('click', handle_tracing_click);
     // Enable keyboard shortcuts for finishing/canceling
-    document.addEventListener('keydown', handleKeyPress);
+    document.addEventListener('keydown', handle_keypress_while_tracing);
     // Hide any visible tooltips to avoid confusion
     tooltip.classed('visible', false);
-}
-
-/**
- * Handles clicks during tracing to add polygon vertices
- * Updates visual feedback by drawing points and connecting lines
- * @param {MouseEvent} event - The click event
- */
-function handle_tracing_click(event) {
-    if (!tracing) return;
-    
-    // Get click coordinates in image space (accounts for current zoom/pan transform)
-    const [x, y] = d3.pointer(event, g.node());
-    // Round coordinates to avoid sub-pixel precision issues
-    current_tracing_points.push([Math.round(x), Math.round(y)]);
-    
-    // Draw a circle at the clicked point to mark the vertex
-    g.append('circle')
-        .attr('class', 'drawing-point')
-        .attr('cx', x)
-        .attr('cy', y)
-        .attr('r', 5);
-    
-    // After 2+ points, show the polygon shape preview
-    if (current_tracing_points.length > 1) {
-        // Remove old polygon preview and redraw with new point
-        g.selectAll('.drawing-polygon').remove();
-        g.append('polygon')
-            .attr('class', 'drawing-polygon')
-            .attr('points', current_tracing_points.map(c => c.join(',')).join(' '));
-    }
 }
 
 /**
@@ -351,10 +369,11 @@ function complete_polygon() {
 function cancel_tracing() {
     tracing = false;
     current_tracing_points = [];
+
     // Remove click handler
     svg.on('click', null);
     // Remove keyboard event listener
-    document.removeEventListener('keydown', handleKeyPress);
+    document.removeEventListener('keydown', handle_keypress_while_tracing);
     
     // Restore normal grab cursor
     document.getElementById('container').classList.remove('tracing');
@@ -409,7 +428,7 @@ function json_string(id, name, description, coordinates) {
  * Generates JSON output from form inputs and traced coordinates
  * Formats with coordinates on single line to match example format
  */
-function update_json_modal_textbox() {
+function update_json_textbox_editable() {
     // Get form values with fallback defaults
     const id = textbox_value_or_placeholder(document.getElementById('polygon-id'));
     const name = textbox_value_or_placeholder(document.getElementById('polygon-name'));
@@ -424,7 +443,7 @@ function update_json_modal_textbox() {
 /**
  * Performs a brief animation on the polygon JSON modal to indicate successful copy to clipboard
  */
-function animate_json_modal_clipboard_success() {
+function animate_json_clipboard_success() {
     // Locate icon and copy contents
     const copy_icon = document.getElementById('copy-icon');
     const original_content = copy_icon.textContent;
@@ -446,7 +465,7 @@ async function copy_json_to_clipboard() {
     // Use Clipboard API to attempt copy-to-clipboard
     try {
         await navigator.clipboard.writeText(json_textbox.value)
-        animate_json_modal_clipboard_success()
+        animate_json_clipboard_success()
     } catch (err) {
         console.error("Copying to user clipboard failed: ", err)
     }
@@ -472,7 +491,7 @@ function keep_traced_polygon() {
     render_polygons();
     
     // Close modal and clean up
-    close_polygon_keepreplace_modal();
+    close_polygon_modal();
     cancel_tracing();
 }
 
@@ -481,7 +500,7 @@ function keep_traced_polygon() {
  * Closes modal and cleans up tracing state without saving
  */
 function discard_traced_polygon() {
-    close_polygon_keepreplace_modal();
+    close_polygon_modal();
     cancel_tracing();
 }
 
@@ -588,9 +607,9 @@ function initialize() {
     document.getElementById('cancel-btn').addEventListener('click', cancel_tracing);
     //   Modal: Polygon Keep/Replace
     document.getElementById('copy-icon').addEventListener('click', copy_json_to_clipboard);
-    document.getElementById('polygon-id').addEventListener('input', update_json_modal_textbox);
-    document.getElementById('polygon-name').addEventListener('input', update_json_modal_textbox);
-    document.getElementById('polygon-desc').addEventListener('input', update_json_modal_textbox);
+    document.getElementById('polygon-id').addEventListener('input', update_json_textbox_editable);
+    document.getElementById('polygon-name').addEventListener('input', update_json_textbox_editable);
+    document.getElementById('polygon-desc').addEventListener('input', update_json_textbox_editable);
     document.getElementById('keep-polygon-btn').addEventListener('click', keep_traced_polygon);
     document.getElementById('discard-polygon-btn').addEventListener('click', discard_traced_polygon);
     //   Modal: Confirm Reset
@@ -598,8 +617,7 @@ function initialize() {
     document.getElementById('cancel-reset-btn').addEventListener('click', close_reset_confirmation_modal);
     //   Background workers
     document.getElementById('image-upload').addEventListener('change', handle_user_image_upload);
-
-    // Handle window resize to keep SVG properly sized
+    //   Window resizes - keep SVG full-window
     window.addEventListener('resize', handle_window_resize);
 
     // Load sample image and features on initialization
