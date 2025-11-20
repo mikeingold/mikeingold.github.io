@@ -220,6 +220,28 @@ svg {
     background: rgba(237, 137, 54, 1);
 }
 
+/* Tracing control buttons - stacked horizontally above dev tools */
+#tracing-controls {
+    display: none;
+    position: absolute;
+    bottom: calc(13 * var(--ui-edge-pad));
+    left: calc(4 * var(--ui-edge-pad));
+    flex-direction: row;
+    gap: 12px;
+    z-index: 100;
+}
+#tracing-controls.active {
+    display: flex;
+}
+#finish-tracing-btn {
+    position: static;
+    background: green;
+}
+#cancel-tracing-btn {
+    position: static;
+    background: red;
+}
+
 /* ============================================
                 Dev Tools Panel
     ============================================ */
@@ -262,6 +284,9 @@ svg {
 .dev-controls button:first-child {
     margin-top: 0;
 }
+.dev-controls button:disabled {
+    background: gray;
+}
 
 /* Section label for dev mode controls */
 .dev-mode-label {
@@ -274,11 +299,11 @@ svg {
 }
 
 /* ============================================
-                Polygon Info Modal
+                Polygon Info Panels
     ============================================ */
 
-/* Polygon data modal */
-#polygon-info-modal {
+/* Polygon data  */
+.polygon-info-panel {
     /* position and size */
     position: absolute;
     top: calc(2 * var(--ui-edge-pad));
@@ -293,11 +318,11 @@ svg {
     border: 1px solid #4299e1;
     padding: var(--ui-edge-pad); /* internal padding */
 }
-#polygon-info-modal.visible {
+.polygon-info-panel.visible {
     display: block;
 }
 
-#polygon-info-modal h2 {
+.polygon-info-panel h2 {
     margin: 0 0 20px 0;
     color: #4299e1;
     display: flex;
@@ -305,7 +330,7 @@ svg {
     justify-content: space-between;
 }
 
-#polygon-info-modal h2 .copy-icon {
+.polygon-info-panel h2 #json-copy-icon {
     cursor: pointer;
     font-size: 20px;
     padding: 8px;
@@ -313,21 +338,21 @@ svg {
     transition: background 0.2s;
     user-select: none;
 }
-#polygon-info-modal h2 .copy-icon:hover {
+.polygon-info-panel h2 #json-copy-icon:hover {
     background: rgba(66, 153, 225, 0.2);
 }
-#polygon-info-modal h2 .copy-icon:active {
+.polygon-info-panel h2 #json-copy-icon:active {
     background: rgba(66, 153, 225, 0.4);
 }
 
-#polygon-info-modal label {
+.polygon-info-panel label {
     display: block;
     margin: 12px 0 4px 0;
     font-size: 14px;
     color: #a0aec0;
 }
-#polygon-info-modal input,
-#polygon-info-modal textarea {
+.polygon-info-panel input,
+.polygon-info-panel textarea {
     width: 100%;
     padding: 10px;
     background: #1a202c;
@@ -336,18 +361,23 @@ svg {
     color: #fff;
     font-size: 14px;
     font-family: inherit;
+    text-wrap: stable;
 }
 /* Monospace font for JSON output */
-#polygon-info-modal textarea {
+.polygon-info-panel textarea.mono {
     font-family: 'Courier New', monospace;
-    min-height: 9em;
-    resize: both;
     overflow: auto;
     white-space: nowrap;
 }
+/* Resizeable and taller */
+.polygon-info-panel input.long,
+.polygon-info-panel textarea.long {
+    min-height: 10em;
+    resize: both;
+}
 
 /* ============================================
-                  Reset Map Modal
+                Modal: Reset Map
     ============================================ */
 
 #reset-modal {

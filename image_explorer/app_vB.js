@@ -1,75 +1,25 @@
 // ========================================
-//   UTILITIES
+//   STATE
 // ========================================
-
-function coordinate_string(coords) {
-    // [ [x1, y1], [x2, y2] ] -> [ "x1,y1", "x2,y2" ] -> "x1,y1 x2,y2"
-    return coords.map(c => c.join(',')).join(' ')
-}
-
-function json_string(id, name, description, coordinates) {
-    // Pack inputs into a JS object using a placeholder for coordinates and then
-    // convert to JSON string with 4-space indentation. Without using a placeholder
-    // placeholder the coordinates will inherit this indentation and occupy many lines.
-    const object = {
-        "id": id,
-        "side": "?",
-        "name": name,
-        "description": description,
-        "coordinates": "COORDINATES"
-    }
-    const object_string = JSON.stringify(object, null, 4)
-
-    // Convert coordinates to a one-liner string with whitespace
-    const coordinate_string = JSON.stringify(coordinates).replace(/,/g, ', ')
-
-    // Replace the placeholder with actual coordinates and return
-    return object_string.replace(/"COORDINATES"/, coordinate_string)
-}
-
-/**
- * For a textbox with a defined placeholder, if there is currently-entered text
- * then return that. Otherwise, return the placeholder.
- */
-function textbox_value_or_placeholder(el) {
-    return el.value || el.placeholder;
-}
-
-// ========================================
-// DATA INITIALIZATION
-// ========================================
-
-class MapState {
-    constructor(image_url, polygons = []) {
-        this.image_url = image_url;
-        this.polygons = polygons;
-        this.user_polygons = [];
-    }
-}
 
 // Default Upper and Lower Views
-let MAP_UPPER = new MapState('assets/map_upper.png', MAP_POLYGONS.filter(f => f.side == "upper"))
-let MAP_LOWER = new MapState('assets/map_lower.png', MAP_POLYGONS.filter(f => f.side == "lower"))
+let MAP_UPPER = new MapState("upper", 'assets/map_upper.png', MAP_POLYGONS.filter(f => f.side == "upper"))
+let MAP_LOWER = new MapState("lower", 'assets/map_lower.png', MAP_POLYGONS.filter(f => f.side == "lower"))
 
-// Application state variables
+// Application state
 let current_map_state = MAP_UPPER;
 let dev_tools_enabled = false; // Whether developer mode is active
-let tracing = false; // Whether user is currently tracing a polygon
-let current_tracing_points = []; // Array of [x, y] coordinates for polygon being traced
+let tracing = false;                // whether user is currently tracing a polygon
 
-// ========================================
-// D3.JS SETUP
-// ========================================
-
-// Viewport dimensions - will be updated on resize
-let width = window.innerWidth;
-let height = window.innerHeight;
+// User-generated polygons
+let current_tracing_points = [];    // array of [x, y] coordinates for polygon being traced
+let target_polygon = null;          // the currently-selected user-generated polygon
 
 // D3 references - will be initialized after DOM loads
 let container, svg, g, zoom, tooltip, info;
 
 // ========================================
-// IMAGE LOADING AND RENDERING
+//   BASIC MAP FUNCTIONS
 // ========================================
 
 /**
@@ -79,38 +29,36 @@ let container, svg, g, zoom, tooltip, info;
 function load_image(map_state) {
     // Clear any existing content (image and polygons)
     g.selectAll('*').remove();
-    
+
     // Use native Image object to get dimensions before rendering
     const img = new Image();
     img.onload = function() {
-        const imgWidth = this.width;
-        const imgHeight = this.height;
-        
-        // Calculate scale to fit image in viewport with 90% coverage
-        // This leaves some margin around the edges
-        const scale = Math.min(width / imgWidth, height / imgHeight) * 0.9;
-        
+        // Determine heights & widths of window and image
+        const image_height = this.height;
+        const image_width = this.width;
+        const window_height = window.innerHeight;
+        const window_width = window.innerWidth;
+        const ratio_height = window_height / image_height
+        const ratio_width = window_width / image_width
+        // Fit image in viewport, leaving some margin around the edges
+        const scale = 0.9 * Math.min(ratio_width, ratio_height);
         // Center the image in the viewport
-        const offsetX = (width - imgWidth * scale) / 2;
-        const offsetY = (height - imgHeight * scale) / 2;
+        const offsetX = (window_width - image_width * scale) / 2;
+        const offsetY = (window_height - image_height * scale) / 2;
 
         // Add image element to SVG at native resolution
-        // D3 zoom will handle the scaling
         g.append('image')
             .attr('href', map_state.image_url)
-            .attr('width', imgWidth)
-            .attr('height', imgHeight);
-
+            .attr('width', image_width)
+            .attr('height', image_height);
         // Apply initial transform to center and scale the image
         svg.call(zoom.transform, d3.zoomIdentity
             .translate(offsetX, offsetY)
-            .scale(scale));
-
+            .scale(scale)
+        );
         // Render polygon overlays on top of image after a short delay
         // This ensures the transform is applied before rendering polygons
-        setTimeout(() => {
-            render_polygons();
-        }, 10);
+        setTimeout(() => { render_polygons() }, 10);
     };
     img.onerror = function() {
         console.error('Failed to load image:', map_state.image_url);
@@ -147,11 +95,13 @@ function render_polygons() {
         tooltip.classed('visible', false);
     }
     const g_click = (event, d) => {
+        event.stopPropagation(); // stop event from propagating to map features behind this one
         if (tracing) return; // no tooltips while tracing
         if (d.isUserGenerated) {
-            alert(`Clicked ${d.name} (Traced)`)
+            target_polygon = get_user_polygon(d.uuid)
+            open_user_polygon_info_panel(target_polygon)
         } else {
-            alert(`Clicked ${d.name}`)
+            open_polygon_info_panel(get_polygon(d.id))
         }
     }
 
@@ -172,6 +122,25 @@ function render_polygons() {
         .on('mousemove', g_mousemove)
         .on('mouseleave', g_mouseleave)
         .on('click', g_click);
+
+    // TODO consider splitting this to draw user-generated separately?
+}
+
+function handle_window_resize() {
+    svg.attr('width', window.innerWidth)
+        .attr('height', window.innerHeight);
+}
+
+function zoom_in() {
+    svg.transition()
+        .duration(300)
+        .call(zoom.scaleBy, 5/4);
+}
+
+function zoom_out() {
+    svg.transition()
+        .duration(300)
+        .call(zoom.scaleBy, 4/5);
 }
 
 // ========================================
@@ -216,18 +185,9 @@ function perform_reset_view() {
     load_image(current_map_state);
 }
 
-/**
- * Handles keyboard shortcuts during tracing mode
- * Enter: Complete polygon and open metadata modal
- * Escape: Cancel tracing and discard current polygon
- * @param {KeyboardEvent} event - The keyboard event
- */
-function handle_keypress_while_tracing(event) {
-    if (event.key === 'Enter' && tracing) {
-        complete_polygon();
-    } else if (event.key === 'Escape' && tracing) {
-        cancel_tracing();
-    }
+function handle_click_normal() {
+    close_polygon_info_panel();
+    close_user_polygon_info_panel();
 }
 
 // ========================================
@@ -239,6 +199,10 @@ function switch_to_lower_view() {
     document.getElementById('upper-view-btn').classList.remove('active');
     document.getElementById('lower-view-btn').classList.add('active');
 
+    // Close polygon info panels if needed
+    close_polygon_info_panel();
+    close_user_polygon_info_panel();
+
     current_map_state = MAP_LOWER;
     load_image(current_map_state);
 }
@@ -247,6 +211,10 @@ function switch_to_upper_view() {
     // Set button states
     document.getElementById('upper-view-btn').classList.add('active');
     document.getElementById('lower-view-btn').classList.remove('active');
+
+    // Close polygon info panels if needed
+    close_polygon_info_panel();
+    close_user_polygon_info_panel();
     
     current_map_state = MAP_UPPER;
     load_image(current_map_state);
@@ -273,20 +241,34 @@ function toggle_dev_tools() {
         // Disable dev mode - hide controls and clean up
         toggle_button.classList.remove('active');
         dev_controls.classList.remove('visible');
-        cancel_tracing(); // Clean up if tracing was in progress
+        exit_tracing(); // Clean up if tracing was in progress
     }
 }
 
 // ========================================
-//   POLYGON TRACING: ACTIONS
+//   POLYGON TRACING
 // ========================================
+
+/**
+ * Handles keyboard shortcuts during tracing mode
+ * Enter: Complete polygon and open metadata modal
+ * Escape: Cancel tracing and discard current polygon
+ * @param {KeyboardEvent} event - The keyboard event
+ */
+function handle_keypress_while_tracing(event) {
+    if (event.key === 'Enter' && tracing) {
+        complete_polygon();
+    } else if (event.key === 'Escape' && tracing) {
+        exit_tracing();
+    }
+}
 
 /**
  * Handles clicks during tracing to add polygon vertices
  * Updates visual feedback by drawing points and connecting lines
  * @param {MouseEvent} event - The click event
  */
-function handle_tracing_click(event) {
+function handle_click_while_tracing(event) {
     if (!tracing) return;
     
     // Get click coordinates (in the mapped space), save them to traced polygon
@@ -317,18 +299,21 @@ function handle_tracing_click(event) {
 function begin_tracing() {
     tracing = true;
     current_tracing_points = [];
+
+    // Close any open info panels
+    close_polygon_info_panel();
+    close_user_polygon_info_panel();
     
     // Update UI state - change cursor and button visibility
     document.getElementById('container').classList.add('tracing');
-    document.getElementById('trace-btn').style.display = 'none';
-    document.getElementById('finish-btn').style.display = 'block';
-    document.getElementById('cancel-btn').style.display = 'block';
+    document.getElementById('trace-btn').disabled = true;
+    document.getElementById('tracing-controls').classList.add("active")
     
     // Clear any previous drawing artifacts from abandoned tracings
     g.selectAll('.drawing-polygon, .drawing-point').remove();
     
     // Enable click handling for placing vertices
-    svg.on('click', handle_tracing_click);
+    svg.on('click', handle_click_while_tracing);
     // Enable keyboard shortcuts for finishing/canceling
     document.addEventListener('keydown', handle_keypress_while_tracing);
     // Hide any visible tooltips to avoid confusion
@@ -336,7 +321,7 @@ function begin_tracing() {
 }
 
 /**
- * Completes the current polygon and shows metadata input modal
+ * Completes the current polygon and shows polygon info panel
  * Validates that polygon has at least 3 points
  */
 function complete_polygon() {
@@ -346,98 +331,132 @@ function complete_polygon() {
         return;
     }
     
-    // Exit tracing mode but keep visual artifacts for reference
-    tracing = false;
-    svg.on('click', null);
-    
-    // Show modal for metadata input
-    const modal = document.getElementById('polygon-info-modal');
-    modal.classList.add('visible');
-    
-    // Reset form fields to defaults
-    document.getElementById('polygon-id').value = '';
-    document.getElementById('polygon-name').value = '';
-    document.getElementById('polygon-desc').value = '';
-    // Generate initial JSON with default values
-    update_json_modal_textbox();
+    // Generate polygon and add it to the current user_polygon array
+    const new_polygon = {
+        "uuid": globalThis.crypto.randomUUID(), // used internally to locate entries for deletion
+        "id": "new-id",
+        "side": current_map_state.name,
+        "name": "New Feature Name",
+        "description": "New feature description",
+        "coordinates": current_tracing_points
+    }
+    current_map_state.user_polygons.push(new_polygon);
+    target_polygon = new_polygon;
+
+    // Update UI: exit tracing, open polygon info panel, re-render all polygons
+    exit_tracing()
+    open_user_polygon_info_panel(new_polygon);
+    render_polygons()
 }
 
 /**
- * Cancels tracing and cleans up visual artifacts
- * Returns UI to dev mode ready state
+ * Exits tracing mode and cleans up visual artifacts
  */
-function cancel_tracing() {
+function exit_tracing() {
     tracing = false;
     current_tracing_points = [];
 
-    // Remove click handler
-    svg.on('click', null);
-    // Remove keyboard event listener
+    // Revert handlers
+    svg.on('click', handle_click_normal);
     document.removeEventListener('keydown', handle_keypress_while_tracing);
     
     // Restore normal grab cursor
     document.getElementById('container').classList.remove('tracing');
     
-    // Remove all drawing artifacts (points and polygon preview)
+    // Remove any drawing artifacts (points and polygon preview)
     g.selectAll('.drawing-polygon, .drawing-point').remove();
     
     // Reset button visibility to initial dev mode state
-    document.getElementById('trace-btn').style.display = 'block';
-    document.getElementById('finish-btn').style.display = 'none';
-    document.getElementById('cancel-btn').style.display = 'none';
+    document.getElementById('trace-btn').disabled = false;
+    document.getElementById('tracing-controls').classList.remove("active")
 }
 
 // ========================================
-//   POLYGON TRACING: KEEP/DISCARD MODAL
+//   POLYGON INFO PANEL (STANDARD)
 // ========================================
 
-/**
- * Opens the user-generated-polygon keep-replace modal
- */
-function open_polygon_keepreplace_modal() {
-    document.getElementById('polygon-info-modal').classList.add('visible');
+function open_polygon_info_panel(polygon) {
+    // Make panel visible
+    document.getElementById('polygon-std-info-panel').classList.add('visible');
+
+    // Set text fields
+    document.getElementById('polygon-id').value = polygon.id;
+    document.getElementById('polygon-name').value = polygon.name;
+    document.getElementById('polygon-description').value = polygon.description;
+}
+
+function close_polygon_info_panel() {
+    // Make panel invisible
+    document.getElementById('polygon-std-info-panel').classList.remove('visible');
+
+    // Blank the text fields
+    document.getElementById('polygon-id').value = '';
+    document.getElementById('polygon-name').value = '';
+    document.getElementById('polygon-description').value = '';
+}
+
+// ========================================
+//   POLYGON INFO PANEL (USER-GENERATED)
+// ========================================
+
+function open_user_polygon_info_panel(polygon) {
+    // Make panel visible
+    document.getElementById('polygon-user-info-panel').classList.add('visible');
+
+    // Set text fields
+    document.getElementById('user-polygon-id').value = polygon.id;
+    document.getElementById('user-polygon-name').value = polygon.name;
+    document.getElementById('user-polygon-description').value = polygon.description;
+
+    // Initialize JSON textbox contents
+    update_user_polygon_info()
+}
+
+function close_user_polygon_info_panel() {
+    // Make panel invisible
+    document.getElementById('polygon-user-info-panel').classList.remove('visible');
+
+    // Blank the text fields
+    document.getElementById('user-polygon-id').value = '';
+    document.getElementById('user-polygon-name').value = '';
+    document.getElementById('user-polygon-description').value = '';
+    document.getElementById('user-polygon-json').value = '';
 }
 
 /**
- * Closes the user-generated-polygon keep-replace modal
+ * Uses User Polygon Info Panel information to update target_polygon and JSON textarea
  */
-function close_polygon_keepreplace_modal() {
-    document.getElementById('polygon-info-modal').classList.remove('visible');
+function update_user_polygon_info() {
+    // Update targeted polygon
+    target_polygon.id = textbox_value_or_placeholder(document.getElementById('user-polygon-id'));
+    target_polygon.name = textbox_value_or_placeholder(document.getElementById('user-polygon-name'));
+    target_polygon.description = textbox_value_or_placeholder(document.getElementById('user-polygon-description'));
+
+    // Convert data to JSON string and write it into the textbox
+    document.getElementById('user-polygon-json').value = polygon_json_string(target_polygon);
 }
 
-function json_string(id, name, description, coordinates) {
-    // Pack inputs into a JS object using a placeholder for coordinates and then
-    // convert to JSON string with 4-space indentation. Without using a placeholder
-    // placeholder the coordinates will inherit this indentation and occupy many lines.
-    const object = {
-        "id": id,
-        "name": name,
-        "description": description,
-        "coordinates": "COORDINATES"
+/**
+ * Remove one polygon from the current map state.
+ *
+ * @param {Object} polygon - The polygon object to remove.
+ */
+function discard_user_polygon(polygon) {
+    // Find index of this polygon in the currently-pointed-to user_polygons array
+    const idx = current_map_state.user_polygons.findIndex(p => (p.uuid === polygon.uuid));
+    if (idx == -1) {
+        // Not found - generate warning
+        console.warn('Polygon not found in user_polygons');
+    } else {
+        // Found - remove it
+        current_map_state.user_polygons.splice(idx, 1);
     }
-    const object_string = JSON.stringify(object, null, 4)
-
-    // Convert coordinates to a one-liner string with whitespace
-    const coordinate_string = JSON.stringify(coordinates).replace(/,/g, ', ')
-
-    // Replace the placeholder with actual coordinates and return
-    return object_string.replace(/"COORDINATES"/, coordinate_string)
 }
 
-/**
- * Generates JSON output from form inputs and traced coordinates
- * Formats with coordinates on single line to match example format
- */
-function update_json_textbox_editable() {
-    // Get form values with fallback defaults
-    const id = textbox_value_or_placeholder(document.getElementById('polygon-id'));
-    const name = textbox_value_or_placeholder(document.getElementById('polygon-name'));
-    const description = textbox_value_or_placeholder(document.getElementById('polygon-desc'));
-    // Get coordinates from currently-traced polygon
-    const coordinates = current_tracing_points;
-
-    // Convert this data to JSON and write it into the textbox
-    document.getElementById('json-output').value = json_string(id, name, description, coordinates);
+function discard_action() {
+    discard_user_polygon(target_polygon)
+    close_user_polygon_info_panel()
+    render_polygons()
 }
 
 /**
@@ -445,7 +464,7 @@ function update_json_textbox_editable() {
  */
 function animate_json_clipboard_success() {
     // Locate icon and copy contents
-    const copy_icon = document.getElementById('copy-icon');
+    const copy_icon = document.getElementById('json-copy-icon');
     const original_content = copy_icon.textContent;
     // Change contents to checkmark
     copy_icon.textContent = '✓';
@@ -460,7 +479,7 @@ function animate_json_clipboard_success() {
  */
 async function copy_json_to_clipboard() {
     // Select all text in the "JSON Output" textbox and copy to clipboard
-    const json_textbox = document.getElementById('json-output');
+    const json_textbox = document.getElementById('user-polygon-json');
     
     // Use Clipboard API to attempt copy-to-clipboard
     try {
@@ -469,39 +488,6 @@ async function copy_json_to_clipboard() {
     } catch (err) {
         console.error("Copying to user clipboard failed: ", err)
     }
-}
-
-/**
- * Keeps the current polygon, adds it to user-generated polygons
- * Closes modal and cleans up tracing state
- */
-function keep_traced_polygon() {
-    // Create polygon object from current data
-    const newPolygon = {
-        id: textbox_value_or_placeholder(document.getElementById('polygon-id')),
-        name: textbox_value_or_placeholder(document.getElementById('polygon-name')),
-        description: textbox_value_or_placeholder(document.getElementById('polygon-desc')),
-        coordinates: [...current_tracing_points]
-    };
-    
-    // Add to user-generated polygons
-    current_map_state.user_polygons.push(newPolygon);
-    
-    // Re-render the map browser to show the new polygon
-    render_polygons();
-    
-    // Close modal and clean up
-    close_polygon_modal();
-    cancel_tracing();
-}
-
-/**
- * Discards the current polygon
- * Closes modal and cleans up tracing state without saving
- */
-function discard_traced_polygon() {
-    close_polygon_modal();
-    cancel_tracing();
 }
 
 // ========================================
@@ -517,12 +503,12 @@ function handle_user_image_upload(e) {
     if (file) {
         const reader = new FileReader();
         reader.onload = function(event) {
-            // Set view button states to inactive
+            // Mark Upper/Lower view buttons as inactive
             document.getElementById('upper-view-btn').classList.remove('active');
             document.getElementById('lower-view-btn').classList.remove('active');
 
             // Generate new MapState with this uploaded image
-            current_map_state = new MapState(event.target.result)
+            current_map_state = new MapState("user", event.target.result)
             load_image(current_map_state);
         };
         // Convert file to data URL
@@ -538,27 +524,6 @@ function trigger_image_upload() {
 }
 
 // ========================================
-//   MAP NAVIGATION
-// ========================================
-
-function handle_window_resize() {
-    svg.attr('width', window.innerWidth)
-        .attr('height', window.innerHeight);
-}
-
-function zoom_in() {
-    svg.transition()
-        .duration(300)
-        .call(zoom.scaleBy, 5/4);
-}
-
-function zoom_out() {
-    svg.transition()
-        .duration(300)
-        .call(zoom.scaleBy, 4/5);
-}
-
-// ========================================
 //             INITIALIZATION
 // ========================================
 
@@ -570,12 +535,11 @@ function initialize() {
     // Initialize D3 references
     container = d3.select('#container');
     svg = d3.select('#map-viewer'); // the SVG block inside the div#container
-    g = svg.append('g');  // SVG group element
+    g = svg.append('g');  // group element inside SVG
     zoom = d3.zoom();
-    info_panel = document.getElementById('info-panel');
 
     // Set initial SVG size to initial window size
-    svg.attr('width', width).attr('height', height);
+    svg.attr('width', window.innerWidth).attr('height', window.innerHeight);
 
     // Configure zoom behavior
     zoom.scaleExtent([0.5, 10]) // Min-max zoom levels
@@ -587,7 +551,7 @@ function initialize() {
     svg.call(zoom);
 
     // Close Info Panel when bare map is clicked
-    //svg.on('click', close_info_panel); TODO
+    svg.on('click', handle_click_normal);
 
     // Reference to tooltip element for showing polygon metadata
     tooltip = d3.select('#tooltip');
@@ -603,15 +567,14 @@ function initialize() {
     //   Developer Tools
     document.getElementById('load-image-btn').addEventListener('click', trigger_image_upload);
     document.getElementById('trace-btn').addEventListener('click', begin_tracing);
-    document.getElementById('finish-btn').addEventListener('click', complete_polygon);
-    document.getElementById('cancel-btn').addEventListener('click', cancel_tracing);
-    //   Modal: Polygon Keep/Replace
-    document.getElementById('copy-icon').addEventListener('click', copy_json_to_clipboard);
-    document.getElementById('polygon-id').addEventListener('input', update_json_textbox_editable);
-    document.getElementById('polygon-name').addEventListener('input', update_json_textbox_editable);
-    document.getElementById('polygon-desc').addEventListener('input', update_json_textbox_editable);
-    document.getElementById('keep-polygon-btn').addEventListener('click', keep_traced_polygon);
-    document.getElementById('discard-polygon-btn').addEventListener('click', discard_traced_polygon);
+    document.getElementById('finish-tracing-btn').addEventListener('click', complete_polygon);
+    document.getElementById('cancel-tracing-btn').addEventListener('click', exit_tracing);
+    //   Panel: Polygon Info (User-Generated)
+    document.getElementById('json-copy-icon').addEventListener('click', copy_json_to_clipboard);
+    document.getElementById('user-polygon-id').addEventListener('input', update_user_polygon_info);
+    document.getElementById('user-polygon-name').addEventListener('input', update_user_polygon_info);
+    document.getElementById('user-polygon-description').addEventListener('input', update_user_polygon_info);
+    document.getElementById('discard-polygon-btn').addEventListener('click', discard_action);
     //   Modal: Confirm Reset
     document.getElementById('confirm-reset-btn').addEventListener('click', perform_reset_view);
     document.getElementById('cancel-reset-btn').addEventListener('click', close_reset_confirmation_modal);

@@ -30,12 +30,10 @@
     </button>
 
     <!-- Dev mode controls panel - appears when dev mode is active -->
-    <div class="dev-controls" id="dev-controls">
+    <div id="dev-controls" class="dev-controls">
         <span class="dev-mode-label">Developer Tools</span>
         <button id="load-image-btn">Load New Image</button>
-        <button id="trace-btn">Trace a Polygon</button>
-        <button id="finish-btn" style="display:none;">Finish Polygon</button>
-        <button id="cancel-btn" style="display:none;">Cancel</button>
+        <button id="trace-btn">Trace a Feature</button>
     </div>
 
     <!-- Reset button - bottom-right, left of zoom controls -->
@@ -63,22 +61,44 @@
         </button>
     </div>
 
+    <!-- Tracing action buttons above dev tools -->
+    <div id="tracing-controls">
+        <button class="round-btn" id="finish-tracing-btn" title="Finish Tracing">
+            <span>✓</span>
+        </button>
+        <button class="round-btn" id="cancel-tracing-btn" title="Cancel Tracing">
+            <span>X</span>
+        </button>
+    </div>
+
     <!-- Polygon Info Panel -->
-    <div id="polygon-info-modal">
+    <div id="polygon-std-info-panel" class="polygon-info-panel">
         <h2>
             <span>Feature Info</span>
-            <span class="copy-icon" id="copy-icon" title="Copy JSON">📋</span>
         </h2>
         <label>ID</label>
-        <input type="text" id="polygon-id" placeholder="new-id">
+            <input type="text" id="polygon-id" readonly>
         <label>Name</label>
-        <input type="text" id="polygon-name" placeholder="New Feature Name">
+            <input type="text" id="polygon-name" readonly>
         <label>Description</label>
-        <input type="text" id="polygon-desc" placeholder="New feature description">
+            <textarea type="text" id="polygon-description" readonly></textarea>
+    </div>
+
+    <!-- Polygon (User-Generated) Info Panel -->
+    <div id="polygon-user-info-panel" class="polygon-info-panel">
+        <h2>
+            <span>Feature Info</span>
+            <span id="json-copy-icon" title="Copy JSON to Clipboard">📋</span>
+        </h2>
+        <label>ID</label>
+            <input type="text" id="user-polygon-id" placeholder="new-id">
+        <label>Name</label>
+            <input type="text" id="user-polygon-name" placeholder="New Feature Name">
+        <label>Description</label>
+            <textarea id="user-polygon-description" class="long" placeholder="New feature description"></textarea>
         <label>JSON Data</label>
-        <textarea id="json-output" readonly></textarea>
+            <textarea id="user-polygon-json" class="mono long" readonly></textarea>
         <div class="modal-buttons">
-            <button class="success" id="keep-polygon-btn">Keep</button>
             <button class="danger" id="discard-polygon-btn">Discard</button>
         </div>
     </div>
@@ -96,6 +116,7 @@
     </div>
 
     <script src="map.js"></script>
+    <script src="utils.js"></script>
     <script src="app_vB.js"></script>
 </body>
 </html>
