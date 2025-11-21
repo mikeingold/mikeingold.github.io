@@ -6,7 +6,6 @@
     - App name
     - Contact information
 
-- Use Google SVG icons for improved looks
 
 ## Bugs
 
@@ -15,4 +14,4 @@
 
 ## Optional improvements
 
-- Merge pan/zoom/rotate handling from version A
+- Merge map-rotation handling from old page version

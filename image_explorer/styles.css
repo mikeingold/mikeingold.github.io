@@ -141,8 +141,6 @@ svg {
     border: 2px solid #4299e1;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     /* text style */
-    color: white;
-    font-size: 24px;
     align-items: center;
     justify-content: center;
     /* behavior */
@@ -160,6 +158,11 @@ svg {
 }
 .round-btn:active {
     transform: scale(0.95);
+}
+.round-btn svg {
+    width: 1em;
+    height: 1em;
+    fill: currentColor;
 }
 
 /* Dev Tools toggle button */
@@ -287,6 +290,10 @@ svg {
 .dev-controls button:disabled {
     background: gray;
 }
+.dev-controls button img {
+    width: 1em;
+    height:1em;
+}
 
 /* Section label for dev mode controls */
 .dev-mode-label {
@@ -343,6 +350,10 @@ svg {
 }
 .polygon-info-panel h2 #json-copy-icon:active {
     background: rgba(66, 153, 225, 0.4);
+}
+.polygon-info-panel h2 #json-copy-icon img {
+    width: 1em;
+    height: 1em;
 }
 
 .polygon-info-panel label {

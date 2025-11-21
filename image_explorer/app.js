@@ -460,17 +460,16 @@ function discard_action() {
 }
 
 /**
- * Performs a brief animation on the polygon JSON modal to indicate successful copy to clipboard
+ * Acknowledge successful clipboard action by briefly replacing the copy icon with a checkmark icon.
  */
 function animate_json_clipboard_success() {
-    // Locate icon and copy contents
-    const copy_icon = document.getElementById('json-copy-icon');
-    const original_content = copy_icon.textContent;
-    // Change contents to checkmark
-    copy_icon.textContent = '✓';
-    // Schedule this to revert 1 second later
-    delay_ms = 1000
-    setTimeout(() => { copy_icon.textContent = original_content; }, delay_ms);
+    // Acknowledge action by changing icon from copy symbol to checkmark
+    const img = document.getElementById('img-copy-icon');
+    img.src = "assets/icon_check.svg";
+
+    // Schedule change back to copy symbol after a slight delay
+    const delay_ms = 800;
+    setTimeout(() => { img.src = "assets/icon_copy.svg"; }, delay_ms);
 }
 
 /**

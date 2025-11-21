@@ -26,48 +26,48 @@
 
     <!-- Dev mode toggle button - bottom-left corner -->
     <button class="round-btn" id="dev-mode-toggle" title="Developer Tools">
-        <span>⚙</span>
+        <span><img src="assets/icon_dev.svg" /></span>
     </button>
 
     <!-- Dev mode controls panel - appears when dev mode is active -->
     <div id="dev-controls" class="dev-controls">
         <span class="dev-mode-label">Developer Tools</span>
-        <button id="load-image-btn">Load New Image</button>
-        <button id="trace-btn">Trace a Feature</button>
+        <button id="load-image-btn"><img src="assets/icon_addphoto.svg" /> Load New Image</button>
+        <button id="trace-btn"><img src="assets/icon_trace.svg" /> Trace a Feature</button>
     </div>
 
     <!-- Reset button - bottom-right, left of zoom controls -->
     <button class="round-btn" id="reset-btn" title="Reset Workspace">
-        <span>↻</span>
+        <span><img src="assets/icon_refresh.svg" /></span>
     </button>
 
     <!-- Upper/Lower Buttons  -->
     <div class="view-controls">
         <button class="round-btn view-btn active" id="upper-view-btn" title="Upper View">
-            <span>U</span>
+            <span><img src="assets/icon_plane.svg" /></span>
         </button>
         <button class="round-btn view-btn" id="lower-view-btn" title="Lower View">
-            <span>L</span>
+            <span><img src="assets/icon_plane.svg" style="transform: rotate(180deg);" /></span>
         </button>
     </div>
 
     <!-- Zoom control buttons in bottom-right -->
     <div class="zoom-controls">
         <button class="round-btn" id="zoom-in-btn" title="Zoom In">
-            <span>+</span>
+            <span><img src="assets/icon_zoomin.svg" /></span>
         </button>
         <button class="round-btn" id="zoom-out-btn" title="Zoom Out">
-            <span>−</span>
+            <span><img src="assets/icon_zoomout.svg" /></span>
         </button>
     </div>
 
     <!-- Tracing action buttons above dev tools -->
     <div id="tracing-controls">
         <button class="round-btn" id="finish-tracing-btn" title="Finish Tracing">
-            <span>✓</span>
+            <span><img src="assets/icon_check.svg" /></span>
         </button>
         <button class="round-btn" id="cancel-tracing-btn" title="Cancel Tracing">
-            <span>X</span>
+            <span><img src="assets/icon_x.svg" /></span>
         </button>
     </div>
 
@@ -88,7 +88,7 @@
     <div id="polygon-user-info-panel" class="polygon-info-panel">
         <h2>
             <span>Feature Info</span>
-            <span id="json-copy-icon" title="Copy JSON to Clipboard">📋</span>
+            <span id="json-copy-icon" title="Copy JSON to Clipboard"><span><img id="img-copy-icon" src="assets/icon_copy.svg" /></span></span>
         </h2>
         <label>ID</label>
             <input type="text" id="user-polygon-id" placeholder="new-id">
