@@ -69,6 +69,9 @@ svg {
     stroke: #63b3ed;
     stroke-width: 3;
 }
+.polygon-area.tracing {
+    cursor: crosshair !important;
+}
 
 /* Completed user-generated polygon overlays */
 .polygon-area.user-generated {

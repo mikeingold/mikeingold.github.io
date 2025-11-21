@@ -304,9 +304,12 @@ function begin_tracing() {
     close_polygon_info_panel();
     close_user_polygon_info_panel();
     
-    // Update UI state - change cursor and button visibility
+    // Change cursor to crosshairs
     document.getElementById('container').classList.add('tracing');
+    document.querySelectorAll('.polygon-area').forEach(p => p.classList.add("tracing"))
+    // Temporarily disable/gray the "Trace a Feature" button
     document.getElementById('trace-btn').disabled = true;
+    // Make the tracing action buttons visible
     document.getElementById('tracing-controls').classList.add("active")
     
     // Clear any previous drawing artifacts from abandoned tracings
@@ -362,6 +365,7 @@ function exit_tracing() {
     
     // Restore normal grab cursor
     document.getElementById('container').classList.remove('tracing');
+    document.querySelectorAll('.polygon-area').forEach(p => p.classList.remove("tracing"))
     
     // Remove any drawing artifacts (points and polygon preview)
     g.selectAll('.drawing-polygon, .drawing-point').remove();
