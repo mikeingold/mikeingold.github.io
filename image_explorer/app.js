@@ -18,6 +18,16 @@ let target_polygon = null;          // the currently-selected user-generated pol
 // D3 references - will be initialized after DOM loads
 let container, svg, g, zoom, tooltip, info;
 
+
+// ========================================
+//   MODAL: ICON SPLASH
+// ========================================
+
+function hide_splash_modal() {
+    document.getElementById('app-splash-modal').classList.remove("visible");
+}
+
+
 // ========================================
 //   BASIC MAP FUNCTIONS
 // ========================================
@@ -578,6 +588,9 @@ function initialize() {
     document.getElementById('user-polygon-name').addEventListener('input', update_user_polygon_info);
     document.getElementById('user-polygon-description').addEventListener('input', update_user_polygon_info);
     document.getElementById('discard-polygon-btn').addEventListener('click', discard_action);
+    //   Modal: Splash
+    document.getElementById('app-splash-modal').addEventListener('click', hide_splash_modal);
+    
     //   Modal: Confirm Reset
     document.getElementById('confirm-reset-btn').addEventListener('click', perform_reset_view);
     document.getElementById('cancel-reset-btn').addEventListener('click', close_reset_confirmation_modal);
